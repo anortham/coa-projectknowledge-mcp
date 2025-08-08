@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet new:*)",
+      "Bash(mkdir:*)",
+      "Bash(dotnet sln add:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build)",
+      "Bash(cat:*)",
+      "Bash(dotnet clean:*)",
+      "mcp__projectknowledge__create_checkpoint",
+      "mcp__projectknowledge__store_knowledge",
+      "mcp__projectknowledge__search_knowledge",
+      "mcp__projectknowledge__get_checkpoint",
+      "mcp__projectknowledge__create_checklist",
+      "mcp__projectknowledge__get_checklist",
+      "mcp__projectknowledge__list_checkpoints",
+      "mcp__projectknowledge__update_checklist_item",
+      "Bash(dotnet build:*)",
+      "mcp__projectknowledge__get_timeline",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(dotnet ef:*)"
+    ],
+    "deny": []
+  }
+}
