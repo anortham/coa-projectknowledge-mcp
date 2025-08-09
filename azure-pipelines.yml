@@ -222,6 +222,12 @@ stages:
             inputs:
               summaryFileLocation: '$(Agent.TempDirectory)\**\coverage.cobertura.xml'
 
+          - powershell: |
+              Write-Host "Build Artifact Staging Directory: $(Build.ArtifactStagingDirectory)"
+              Write-Host "Creating packages directory..."
+              New-Item -ItemType Directory -Force -Path "$(Build.ArtifactStagingDirectory)\packages"
+            displayName: "Prepare package directory"
+
           - task: DotNetCoreCLI@2
             displayName: "Pack COA.ProjectKnowledge.McpServer"
             inputs:
@@ -229,25 +235,59 @@ stages:
               packagesToPack: "COA.ProjectKnowledge.McpServer/COA.ProjectKnowledge.McpServer.csproj"
               configuration: $(buildConfiguration)
               packDirectory: "$(Build.ArtifactStagingDirectory)/packages"
-              nobuild: true
+              nobuild: false  # Changed to false to ensure build happens
               versioningScheme: "off"
               arguments: "$(versionArguments) --no-restore"
 
           - powershell: |
-              Write-Host "Generated NuGet packages:"
-              Write-Host "========================="
-              Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)\packages" -Filter "*.nupkg" | ForEach-Object {
-                  Write-Host "$($_.Name) - Size: $([math]::Round($_.Length / 1MB, 2)) MB"
+              Write-Host "Checking generated packages..."
+              Write-Host "======================================="
+              Write-Host "Artifact staging directory contents:"
+              if (Test-Path "$(Build.ArtifactStagingDirectory)") {
+                  Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)" -Recurse | ForEach-Object {
+                      Write-Host "  $($_.FullName)"
+                  }
+              } else {
+                  Write-Host "  Staging directory does not exist!"
               }
-              Write-Host "========================="
-            displayName: "List generated packages"
+              
+              Write-Host ""
+              Write-Host "Packages directory contents:"
+              if (Test-Path "$(Build.ArtifactStagingDirectory)\packages") {
+                  $packages = Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)\packages" -Filter "*.nupkg"
+                  if ($packages.Count -gt 0) {
+                      $packages | ForEach-Object {
+                          Write-Host "  $($_.Name) - Size: $([math]::Round($_.Length / 1MB, 2)) MB"
+                      }
+                  } else {
+                      Write-Host "  No .nupkg files found!"
+                  }
+              } else {
+                  Write-Host "  Packages directory does not exist!"
+              }
+              Write-Host "======================================="
+            displayName: "Debug: List generated packages"
+
+          - powershell: |
+              $packagesPath = "$(Build.ArtifactStagingDirectory)\packages"
+              $hasPackages = (Test-Path $packagesPath) -and ((Get-ChildItem -Path $packagesPath -Filter "*.nupkg").Count -gt 0)
+              Write-Host "##vso[task.setvariable variable=hasPackages]$hasPackages"
+              Write-Host "Has packages to publish: $hasPackages"
+            displayName: "Check if packages exist"
 
           - task: PublishBuildArtifacts@1
             displayName: "Publish artifacts"
+            condition: eq(variables['hasPackages'], 'True')
             inputs:
               PathtoPublish: '$(Build.ArtifactStagingDirectory)\packages'
               ArtifactName: "packages"
               publishLocation: "Container"
+
+          - script: |
+              echo "##[warning]No packages were generated. Skipping artifact publishing."
+              echo "##[section]Check the pack step logs above for issues."
+            displayName: "Package Generation Warning"
+            condition: eq(variables['hasPackages'], 'False')
 
   - stage: Publish
     displayName: "Publish to Azure DevOps"
@@ -259,17 +299,35 @@ stages:
         steps:
           - task: DownloadBuildArtifacts@1
             displayName: "Download artifacts"
+            continueOnError: true
             inputs:
               buildType: "current"
               downloadType: "single"
               artifactName: "packages"
               downloadPath: "$(System.ArtifactsDirectory)"
 
+          - powershell: |
+              $artifactsPath = "$(System.ArtifactsDirectory)\packages"
+              $hasPackages = (Test-Path $artifactsPath) -and ((Get-ChildItem -Path $artifactsPath -Filter "*.nupkg" -ErrorAction SilentlyContinue).Count -gt 0)
+              Write-Host "##vso[task.setvariable variable=hasPackagesToPublish]$hasPackages"
+              Write-Host "Has packages to publish: $hasPackages"
+              if ($hasPackages) {
+                  Write-Host "Packages found:"
+                  Get-ChildItem -Path $artifactsPath -Filter "*.nupkg" | ForEach-Object {
+                      Write-Host "  $($_.Name)"
+                  }
+              } else {
+                  Write-Host "No packages found in artifacts directory"
+              }
+            displayName: "Check downloaded packages"
+
           - task: NuGetAuthenticate@1
             displayName: 'Authenticate to NuGet feed'
+            condition: eq(variables['hasPackagesToPublish'], 'True')
             
           - task: DotNetCoreCLI@2
             displayName: "Push to COA Azure DevOps feed"
+            condition: eq(variables['hasPackagesToPublish'], 'True')
             inputs:
               command: "push"
               packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
@@ -279,6 +337,13 @@ stages:
               arguments: "--skip-duplicate"
             env:
               SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+          - script: |
+              echo "##[warning]No packages were available to publish to the COA feed."
+              echo "##[section]This usually means the pack step in the Build stage failed to generate .nupkg files."
+              echo "##[section]Check the Build stage logs for pack step errors."
+            displayName: "No Packages Warning"
+            condition: eq(variables['hasPackagesToPublish'], 'False')
 
   # NuGet.org publishing stage (disabled until service connection is configured)
   # To enable: Create "NuGet.org - COA" service connection in Azure DevOps Project Settings
