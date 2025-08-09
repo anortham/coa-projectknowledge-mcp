@@ -280,38 +280,31 @@ stages:
             env:
               SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
-  # Optional stage for NuGet.org publishing - requires service connection setup
-  - stage: PublishNuGet
-    displayName: "Publish to NuGet.org (Optional)"
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['isRelease'], true), ne(variables['SKIP_NUGET_PUBLISH'], 'true'))
-    jobs:
-      - job: PublishToNuGet
-        displayName: "Publish to NuGet.org (Release only)"
-        continueOnError: true  # Don't fail entire pipeline if service connection missing
-        steps:
-          - task: DownloadBuildArtifacts@1
-            displayName: "Download artifacts"
-            inputs:
-              buildType: "current"
-              downloadType: "single"
-              artifactName: "packages"
-              downloadPath: "$(System.ArtifactsDirectory)"
-
-          - task: NuGetCommand@2
-            displayName: "Push to NuGet.org"
-            continueOnError: true
-            inputs:
-              command: "push"
-              packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
-              nuGetFeedType: "external"
-              publishFeedCredentials: "NuGet.org - COA"
-              allowPackageConflicts: false
-          
-          - script: |
-              echo "##[warning]NuGet.org publishing requires 'NuGet.org - COA' service connection"
-              echo "##[section]To setup: Go to Azure DevOps Project Settings > Service connections > New service connection > NuGet"
-              echo "##[section]Configure with NuGet.org API key and name it 'NuGet.org - COA'"
-              echo "##[section]Alternatively, set SKIP_NUGET_PUBLISH=true variable to skip this stage"
-            displayName: "Service Connection Setup Instructions"
-            condition: failed()
+  # NuGet.org publishing stage (disabled until service connection is configured)
+  # To enable: Create "NuGet.org - COA" service connection in Azure DevOps Project Settings
+  # Then uncomment the stage below and remove this comment block
+  #
+  # - stage: PublishNuGet
+  #   displayName: "Publish to NuGet.org"
+  #   dependsOn: Build
+  #   condition: and(succeeded(), eq(variables['isRelease'], true))
+  #   jobs:
+  #     - job: PublishToNuGet
+  #       displayName: "Publish to NuGet.org (Release only)"
+  #       steps:
+  #         - task: DownloadBuildArtifacts@1
+  #           displayName: "Download artifacts"
+  #           inputs:
+  #             buildType: "current"
+  #             downloadType: "single"
+  #             artifactName: "packages"
+  #             downloadPath: "$(System.ArtifactsDirectory)"
+  #
+  #         - task: NuGetCommand@2
+  #           displayName: "Push to NuGet.org"
+  #           inputs:
+  #             command: "push"
+  #             packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
+  #             nuGetFeedType: "external"
+  #             publishFeedCredentials: "NuGet.org - COA"
+  #             allowPackageConflicts: false
