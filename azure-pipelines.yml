@@ -1,5 +1,11 @@
 # Azure Pipelines CI/CD for COA ProjectKnowledge MCP Server
 # Builds, tests, and publishes dotnet tool to Azure Artifacts
+#
+# Service Connection Requirements:
+# - "COA NuGet Feed" for publishing to Azure Artifacts (required)
+# - "NuGet.org - COA" for publishing to NuGet.org (optional)
+#   To create: Azure DevOps > Project Settings > Service connections > New > NuGet
+#   Set SKIP_NUGET_PUBLISH=true to skip NuGet.org publishing if connection unavailable
 
 name: 'COA ProjectKnowledge MCP Server - $(Build.SourceBranchName) - $(Date:yyyyMMdd)$(Rev:.r)'
 
@@ -274,14 +280,15 @@ stages:
             env:
               SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
-  # Future stage for NuGet.org publishing
+  # Optional stage for NuGet.org publishing - requires service connection setup
   - stage: PublishNuGet
-    displayName: "Publish to NuGet.org"
+    displayName: "Publish to NuGet.org (Optional)"
     dependsOn: Build
-    condition: and(succeeded(), eq(variables['isRelease'], true))
+    condition: and(succeeded(), eq(variables['isRelease'], true), ne(variables['SKIP_NUGET_PUBLISH'], 'true'))
     jobs:
       - job: PublishToNuGet
         displayName: "Publish to NuGet.org (Release only)"
+        continueOnError: true  # Don't fail entire pipeline if service connection missing
         steps:
           - task: DownloadBuildArtifacts@1
             displayName: "Download artifacts"
@@ -293,9 +300,18 @@ stages:
 
           - task: NuGetCommand@2
             displayName: "Push to NuGet.org"
+            continueOnError: true
             inputs:
               command: "push"
               packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
               nuGetFeedType: "external"
               publishFeedCredentials: "NuGet.org - COA"
               allowPackageConflicts: false
+          
+          - script: |
+              echo "##[warning]NuGet.org publishing requires 'NuGet.org - COA' service connection"
+              echo "##[section]To setup: Go to Azure DevOps Project Settings > Service connections > New service connection > NuGet"
+              echo "##[section]Configure with NuGet.org API key and name it 'NuGet.org - COA'"
+              echo "##[section]Alternatively, set SKIP_NUGET_PUBLISH=true variable to skip this stage"
+            displayName: "Service Connection Setup Instructions"
+            condition: failed()
