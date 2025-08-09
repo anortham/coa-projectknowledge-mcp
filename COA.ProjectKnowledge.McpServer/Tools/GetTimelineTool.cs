@@ -30,18 +30,18 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
             DateTime startDate, endDate;
             if (parameters.DaysAgo.HasValue)
             {
-                endDate = DateTime.Now;
+                endDate = DateTime.UtcNow;
                 startDate = endDate.AddDays(-parameters.DaysAgo.Value);
             }
             else if (parameters.HoursAgo.HasValue)
             {
-                endDate = DateTime.Now;
+                endDate = DateTime.UtcNow;
                 startDate = endDate.AddHours(-parameters.HoursAgo.Value);
             }
             else
             {
-                startDate = parameters.StartDate ?? DateTime.Now.AddDays(-7);
-                endDate = parameters.EndDate ?? DateTime.Now;
+                startDate = parameters.StartDate ?? DateTime.UtcNow.AddDays(-7);
+                endDate = parameters.EndDate ?? DateTime.UtcNow;
             }
             
             // Build query based on parameters
@@ -176,7 +176,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private string GetTimePeriod(DateTime date, DateTime now)
     {
-        // Convert UTC to local time for comparison
+        // Convert to local time for user-friendly grouping
         var localDate = date.Kind == DateTimeKind.Utc ? date.ToLocalTime() : date;
         var diff = now - localDate;
         
@@ -266,7 +266,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private string GetFriendlyTimeAgo(DateTime date)
     {
-        // Convert UTC to local time for comparison
+        // Always convert to local time for user display - users want to see their local time
         var localDate = date.Kind == DateTimeKind.Utc ? date.ToLocalTime() : date;
         var diff = DateTime.Now - localDate;
         
@@ -275,7 +275,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
         if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} hours ago";
         if (diff.TotalDays < 7) return $"{(int)diff.TotalDays} days ago";
         if (diff.TotalDays < 30) return $"{(int)(diff.TotalDays / 7)} weeks ago";
-        return date.ToString("MMM dd, yyyy HH:mm");
+        return localDate.ToString("MMM dd, yyyy HH:mm");
     }
 }
 
