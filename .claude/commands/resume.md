@@ -1,5 +1,5 @@
 ---
-allowed-tools: ["mcp__projectknowledge__list_checkpoints", "mcp__projectknowledge__get_checkpoint", "mcp__projectknowledge__search_knowledge", "mcp__projectknowledge__get_checklist", "mcp__projectknowledge__get_timeline"]
+allowed-tools: ["mcp__projectknowledge__list_checkpoints", "mcp__projectknowledge__load_checkpoint", "mcp__projectknowledge__find_knowledge", "mcp__projectknowledge__get_checklist", "mcp__projectknowledge__show_activity"]
 description: "Resume work from the most recent checkpoint with enhanced display"
 ---
 
@@ -15,7 +15,7 @@ If a sessionId is provided:
 - Get the most recent by sequence number
 
 Otherwise:
-- Use search_knowledge with query "type:Checkpoint" maxResults: 1
+- Use find_knowledge with query "type:Checkpoint" maxResults: 1
 - The chronological IDs ensure we get the most recent
 
 ### 2. Display Checkpoint Information
@@ -38,7 +38,7 @@ Active Files:
 ```
 
 ### 3. Show Recent Timeline
-Use get_timeline with:
+Use show_activity with:
 - HoursAgo: 24
 - MaxPerGroup: 5
 
@@ -46,7 +46,7 @@ Display as: "📊 Recent Activity (Last 24 Hours)"
 
 ### 4. Check Active Work Items
 Search for active checklists:
-- Use search_knowledge with query "type:Checklist" maxResults: 3
+- Use find_knowledge with query "type:Checklist" maxResults: 3
 - For each checklist found, use get_checklist to show completion status
 - Display as progress bars: [████████░░] 80% - Checklist Name
 
@@ -67,6 +67,6 @@ End with:
 
 ### 7. Fallback (No Checkpoint)
 If no checkpoint found:
-- Use get_timeline for last 7 days
+- Use show_activity for last 7 days
 - Display: "⚠️ No checkpoint found. Showing recent activity:"
 - Show timeline and suggest creating a checkpoint

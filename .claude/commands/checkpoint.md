@@ -1,5 +1,5 @@
 ---
-allowed-tools: ["mcp__projectknowledge__create_checkpoint", "mcp__projectknowledge__search_knowledge", "mcp__projectknowledge__store_knowledge"]
+allowed-tools: ["mcp__projectknowledge__save_checkpoint", "mcp__projectknowledge__find_knowledge", "mcp__projectknowledge__store_knowledge"]
 description: "Create a checkpoint of current work session with structured format"
 ---
 
@@ -37,12 +37,12 @@ The checkpoint content MUST follow this exact structure:
 
 ## Steps:
 1. First, search for recent checkpoints to determine the session:
-   - Use search_knowledge with query "type:Checkpoint" and maxResults: 1
+   - Use find_knowledge with query "type:Checkpoint" and maxResults: 1
    - If found, extract sessionId from metadata for continuity
    - If not found, create new session: "{project}-{yyyy-MM-dd}"
 
 2. Create the checkpoint:
-   - Use create_checkpoint with the formatted content
+   - Use save_checkpoint with the formatted content
    - Include the sessionId for session continuity
    - Include activeFiles array with modified file paths
 

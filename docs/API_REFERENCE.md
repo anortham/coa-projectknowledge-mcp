@@ -59,7 +59,7 @@ Store knowledge in the centralized knowledge base.
 
 ---
 
-### search_knowledge
+### find_knowledge
 
 Search the knowledge base with flexible queries.
 

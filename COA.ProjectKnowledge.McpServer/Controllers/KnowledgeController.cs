@@ -47,20 +47,70 @@ public class KnowledgeController : ControllerBase
     }
     
     /// <summary>
-    /// Search for knowledge
+    /// Search for knowledge within current workspace
     /// </summary>
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string query, [FromQuery] int maxResults = 50)
     {
         try
         {
-            var results = await _knowledgeService.SearchAsync(query, maxResults: maxResults);
+            var request = new SearchKnowledgeRequest
+            {
+                Query = query,
+                MaxResults = maxResults
+            };
+            var results = await _knowledgeService.SearchKnowledgeAsync(request);
             return Ok(results);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Search failed for query: {Query}", query);
             return StatusCode(500, new { Error = "Search failed", Message = ex.Message });
+        }
+    }
+    
+    /// <summary>
+    /// Search for knowledge across multiple workspaces/projects
+    /// </summary>
+    [HttpGet("search/cross-project")]
+    public async Task<IActionResult> CrossProjectSearch(
+        [FromQuery] string query, 
+        [FromQuery] string[]? workspaces = null, 
+        [FromQuery] int maxResults = 50)
+    {
+        try
+        {
+            var request = new CrossWorkspaceSearchRequest
+            {
+                Query = query,
+                Workspaces = workspaces,
+                MaxResults = maxResults
+            };
+            var results = await _knowledgeService.SearchAcrossWorkspacesAsync(request);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cross-project search failed for query: {Query}", query);
+            return StatusCode(500, new { Error = "Cross-project search failed", Message = ex.Message });
+        }
+    }
+    
+    /// <summary>
+    /// Get list of available workspaces/projects
+    /// </summary>
+    [HttpGet("workspaces")]
+    public async Task<IActionResult> GetWorkspaces()
+    {
+        try
+        {
+            var workspaces = await _knowledgeService.GetAvailableWorkspacesAsync();
+            return Ok(new { Workspaces = workspaces });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get available workspaces");
+            return StatusCode(500, new { Error = "Failed to get workspaces", Message = ex.Message });
         }
     }
     
@@ -72,12 +122,12 @@ public class KnowledgeController : ControllerBase
     {
         try
         {
-            var knowledge = await _knowledgeService.GetByIdAsync(id);
-            if (knowledge == null)
+            var response = await _knowledgeService.GetKnowledgeAsync(id);
+            if (!response.Success || response.Knowledge == null)
             {
                 return NotFound(new { Error = "Knowledge not found", Id = id });
             }
-            return Ok(knowledge);
+            return Ok(response.Knowledge);
         }
         catch (Exception ex)
         {
@@ -87,10 +137,10 @@ public class KnowledgeController : ControllerBase
     }
     
     /// <summary>
-    /// Store new knowledge (for federation)
+    /// Store new knowledge (supports federation from MCP clients)
     /// </summary>
-    [HttpPost]
-    public async Task<IActionResult> Store([FromBody] Knowledge knowledge)
+    [HttpPost("store")]
+    public async Task<IActionResult> Store([FromBody] StoreKnowledgeRequest request)
     {
         try
         {
@@ -100,8 +150,28 @@ public class KnowledgeController : ControllerBase
                 return Unauthorized(new { Error = "Invalid or missing API key" });
             }
             
-            var stored = await _knowledgeService.StoreAsync(knowledge);
-            return CreatedAtAction(nameof(GetById), new { id = stored.Id }, stored);
+            // Check if this is from a federation client (has source in metadata)
+            var clientSource = request.Metadata?.GetValueOrDefault("source");
+            var clientWorkspace = request.Metadata?.GetValueOrDefault("workspace");
+            StoreKnowledgeResponse response;
+            
+            if (!string.IsNullOrEmpty(clientSource))
+            {
+                // Use federation service for client requests with workspace
+                response = await _federationService.StoreFromClientAsync(request, clientSource, clientWorkspace);
+            }
+            else
+            {
+                // Direct storage for internal requests
+                response = await _knowledgeService.StoreKnowledgeAsync(request);
+            }
+            
+            if (!response.Success)
+            {
+                return StatusCode(500, new { Error = "Failed to store knowledge", Message = response.Error });
+            }
+            
+            return CreatedAtAction(nameof(GetById), new { id = response.KnowledgeId }, new { Id = response.KnowledgeId });
         }
         catch (Exception ex)
         {
@@ -109,62 +179,117 @@ public class KnowledgeController : ControllerBase
             return StatusCode(500, new { Error = "Failed to store knowledge", Message = ex.Message });
         }
     }
-    
+
     /// <summary>
-    /// Federated search across workspaces
+    /// Batch store multiple knowledge items (federation support)
     /// </summary>
-    [HttpGet("federated/search")]
-    public async Task<IActionResult> FederatedSearch([FromQuery] string query, [FromQuery] int maxResultsPerPeer = 10)
+    [HttpPost("batch")]
+    public async Task<IActionResult> BatchStore([FromBody] List<StoreKnowledgeRequest> requests)
     {
         try
         {
-            var results = await _federationService.SearchFederatedAsync(query, maxResultsPerPeer);
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Federated search failed for query: {Query}", query);
-            return StatusCode(500, new { Error = "Federated search failed", Message = ex.Message });
-        }
-    }
-    
-    /// <summary>
-    /// Share knowledge with federation peers
-    /// </summary>
-    [HttpPost("{id}/share")]
-    public async Task<IActionResult> Share(string id, [FromBody] List<string>? peerIds = null)
-    {
-        try
-        {
-            var result = await _federationService.ShareKnowledgeAsync(id, peerIds);
-            if (!result.Success)
+            // Validate API key if required
+            if (!await ValidateApiKeyAsync())
             {
-                return BadRequest(result);
+                return Unauthorized(new { Error = "Invalid or missing API key" });
             }
-            return Ok(result);
+
+            var results = new List<object>();
+            
+            foreach (var request in requests)
+            {
+                try
+                {
+                    // Check if this is from a federation client
+                    var clientSource = request.Metadata?.GetValueOrDefault("source");
+                    var clientWorkspace = request.Metadata?.GetValueOrDefault("workspace");
+                    StoreKnowledgeResponse response;
+                    
+                    if (!string.IsNullOrEmpty(clientSource))
+                    {
+                        response = await _federationService.StoreFromClientAsync(request, clientSource, clientWorkspace);
+                    }
+                    else
+                    {
+                        response = await _knowledgeService.StoreKnowledgeAsync(request);
+                    }
+                    
+                    results.Add(new { success = true, id = response.KnowledgeId, message = response.Message });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to store knowledge item in batch");
+                    results.Add(new { success = false, error = ex.Message });
+                }
+            }
+            
+            return Ok(new { results, total = requests.Count, successful = results.Count(r => (bool)((dynamic)r).success) });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to share knowledge: {Id}", id);
-            return StatusCode(500, new { Error = "Failed to share knowledge", Message = ex.Message });
+            _logger.LogError(ex, "Failed to process batch store");
+            return StatusCode(500, new { Error = "Batch store failed", Message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Contribute knowledge from external systems (simplified federation endpoint)
+    /// </summary>
+    [HttpPost("contribute")]
+    public async Task<IActionResult> ContributeExternal([FromBody] ExternalContribution contribution)
+    {
+        try
+        {
+            // Validate API key if required
+            if (!await ValidateApiKeyAsync())
+            {
+                return Unauthorized(new { Error = "Invalid or missing API key" });
+            }
+            
+            var request = new StoreKnowledgeRequest
+            {
+                Type = contribution.Type,
+                Content = contribution.Content,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["source"] = contribution.SourceId,
+                    ["projectName"] = contribution.ProjectName,
+                    ["contributedAt"] = DateTime.UtcNow.ToString("O")
+                }
+            };
+            
+            var response = await _federationService.StoreFromClientAsync(request, contribution.SourceId, contribution.ProjectName);
+            
+            return Ok(new
+            {
+                success = response.Success,
+                id = response.KnowledgeId,
+                message = $"Contribution accepted from {contribution.SourceId}",
+                error = response.Error
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process external contribution");
+            return StatusCode(500, new { Error = "Contribution failed", Message = ex.Message });
         }
     }
     
     /// <summary>
-    /// Get federation peer health status
+    /// Get federation statistics (central hub info)
     /// </summary>
-    [HttpGet("federation/health")]
-    public async Task<IActionResult> GetPeerHealth()
+    [HttpGet("federation/stats")]
+    public async Task<IActionResult> GetFederationStats()
     {
         try
         {
-            var health = await _federationService.GetPeerHealthAsync();
-            return Ok(health);
+            var stats = await _federationService.GetFederationStatsAsync();
+            return Ok(stats);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get peer health");
-            return StatusCode(500, new { Error = "Failed to get peer health", Message = ex.Message });
+            _logger.LogError(ex, "Failed to get federation stats");
+            return StatusCode(500, new { Error = "Failed to get federation stats", Message = ex.Message });
         }
     }
     

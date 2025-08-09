@@ -53,7 +53,35 @@ public class MarkdownExportService
             var query = options.FilterByType != null 
                 ? $"type:{options.FilterByType}"
                 : "*";
-            var items = await _knowledgeService.SearchAsync(query, workspace, maxResults: 1000);
+            var searchRequest = new SearchKnowledgeRequest
+            {
+                Query = query,
+                Workspace = workspace,
+                MaxResults = 1000
+            };
+            var searchResponse = await _knowledgeService.SearchKnowledgeAsync(searchRequest);
+            var items = searchResponse.Items?.Select(item =>
+            {
+                var knowledge = new Knowledge
+                {
+                    Id = item.Id,
+                    Type = item.Type,
+                    Content = item.Content,
+                    CreatedAt = item.CreatedAt,
+                    ModifiedAt = item.ModifiedAt,
+                    AccessCount = item.AccessCount
+                };
+                
+                // Set metadata for computed properties
+                if (item.Tags != null)
+                    knowledge.SetMetadata("tags", item.Tags);
+                if (!string.IsNullOrEmpty(item.Status))
+                    knowledge.SetMetadata("status", item.Status);
+                if (!string.IsNullOrEmpty(item.Priority))
+                    knowledge.SetMetadata("priority", item.Priority);
+                
+                return knowledge;
+            }).ToList() ?? new List<Knowledge>();
             
             _logger.LogInformation("Exporting {Count} knowledge items to {Path}", 
                 items.Count, outputPath);

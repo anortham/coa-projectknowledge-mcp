@@ -1,80 +1,138 @@
+using COA.ProjectKnowledge.McpServer.Data;
+using COA.ProjectKnowledge.McpServer.Data.Entities;
 using COA.ProjectKnowledge.McpServer.Models;
-using COA.ProjectKnowledge.McpServer.Storage;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace COA.ProjectKnowledge.McpServer.Services;
 
 public class CheckpointService
 {
-    private readonly KnowledgeService _knowledgeService;
-    private readonly ILogger<CheckpointService> _logger;
-    private readonly Dictionary<string, int> _sessionSequences = new();
-    
-    public CheckpointService(
-        KnowledgeService knowledgeService,
-        ILogger<CheckpointService> logger)
+    private readonly KnowledgeDbContext _context;
+    private readonly IWorkspaceResolver _workspaceResolver;
+
+    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver)
     {
-        _knowledgeService = knowledgeService;
-        _logger = logger;
+        _context = context;
+        _workspaceResolver = workspaceResolver;
     }
-    
-    public async Task<Checkpoint> StoreCheckpointAsync(string content, string sessionId, string[]? activeFiles = null)
+
+    public async Task<Checkpoint> CreateCheckpointAsync(string content, string? sessionId = null, List<string>? activeFiles = null)
     {
-        // Get next sequence number for session
-        if (!_sessionSequences.ContainsKey(sessionId))
-        {
-            _sessionSequences[sessionId] = 0;
-        }
-        var sequenceNumber = ++_sessionSequences[sessionId];
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        sessionId ??= Guid.NewGuid().ToString();
         
         var checkpoint = new Checkpoint
         {
             Content = content,
             SessionId = sessionId,
-            SequenceNumber = sequenceNumber,
-            ActiveFiles = activeFiles ?? Array.Empty<string>()
+            ActiveFiles = (activeFiles ?? new List<string>()).ToArray(),
+            Workspace = workspace
         };
-        
-        await _knowledgeService.StoreAsync(checkpoint);
-        
-        _logger.LogInformation("Stored checkpoint #{Seq} for session {Session}", 
-            sequenceNumber, sessionId);
-        
-        return checkpoint;
-    }
-    
-    public async Task<Checkpoint?> GetLatestCheckpointAsync(string? sessionId = null)
-    {
-        var query = sessionId != null 
-            ? $"type:{KnowledgeTypes.Checkpoint} AND sessionId:{sessionId}"
-            : $"type:{KnowledgeTypes.Checkpoint}";
-        
-        var results = await _knowledgeService.SearchAsync(query, maxResults: 1);
-        
-        return results.FirstOrDefault() as Checkpoint;
-    }
-    
-    public async Task<List<Checkpoint>> GetCheckpointTimelineAsync(string sessionId, int maxResults = 20)
-    {
-        var query = $"type:{KnowledgeTypes.Checkpoint} AND sessionId:{sessionId}";
-        var results = await _knowledgeService.SearchAsync(query, maxResults: maxResults);
-        
-        return results.Cast<Checkpoint>().OrderBy(c => c.SequenceNumber).ToList();
-    }
-    
-    public async Task<Checkpoint?> RestoreCheckpointAsync(string checkpointId)
-    {
-        var knowledge = await _knowledgeService.GetByIdAsync(checkpointId);
-        
-        if (knowledge is not Checkpoint checkpoint)
+
+        var entity = new KnowledgeEntity
         {
-            _logger.LogWarning("Checkpoint not found: {Id}", checkpointId);
-            return null;
-        }
-        
-        _logger.LogInformation("Restored checkpoint #{Seq} from session {Session}",
-            checkpoint.SequenceNumber, checkpoint.SessionId);
-        
+            Id = checkpoint.Id,
+            Type = KnowledgeTypes.Checkpoint,
+            Content = checkpoint.Content,
+            Metadata = JsonSerializer.Serialize(new
+            {
+                checkpoint.SessionId,
+                checkpoint.ActiveFiles
+            }),
+            Tags = JsonSerializer.Serialize(new List<string> { "checkpoint", sessionId }),
+            Priority = "normal",
+            Status = "active",
+            Workspace = checkpoint.Workspace,
+            CreatedAt = checkpoint.CreatedAt,
+            ModifiedAt = checkpoint.CreatedAt,
+            AccessedAt = checkpoint.CreatedAt,
+            AccessCount = checkpoint.AccessCount
+        };
+
+        _context.Knowledge.Add(entity);
+        await _context.SaveChangesAsync();
+
         return checkpoint;
     }
+
+    public async Task<Checkpoint?> GetCheckpointAsync(string? checkpointId = null, string? sessionId = null)
+    {
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
+        IQueryable<KnowledgeEntity> query = _context.Knowledge
+            .Where(k => k.Type == KnowledgeTypes.Checkpoint && k.Workspace == workspace);
+
+        if (!string.IsNullOrEmpty(checkpointId))
+        {
+            query = query.Where(k => k.Id == checkpointId);
+        }
+        else if (!string.IsNullOrEmpty(sessionId))
+        {
+            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"SessionId\":\"{sessionId}\""));
+            query = query.OrderByDescending(k => k.Id); // Use chronological ID for natural sorting
+        }
+        else
+        {
+            query = query.OrderByDescending(k => k.Id); // Use chronological ID for natural sorting
+        }
+
+        var entity = await query.FirstOrDefaultAsync();
+        if (entity == null) return null;
+
+        // Update access tracking efficiently
+        var now = DateTime.UtcNow;
+        await _context.Database.ExecuteSqlRawAsync(
+            "UPDATE Knowledge SET AccessedAt = @now, AccessCount = AccessCount + 1 WHERE Id = @id",
+            new Microsoft.Data.Sqlite.SqliteParameter("@now", now),
+            new Microsoft.Data.Sqlite.SqliteParameter("@id", entity.Id));
+
+        return ConvertToCheckpoint(entity);
+    }
+
+    public async Task<List<Checkpoint>> ListCheckpointsAsync(string? sessionId = null, int maxResults = 20)
+    {
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
+        IQueryable<KnowledgeEntity> query = _context.Knowledge
+            .Where(k => k.Type == KnowledgeTypes.Checkpoint && k.Workspace == workspace);
+
+        if (!string.IsNullOrEmpty(sessionId))
+        {
+            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"SessionId\":\"{sessionId}\""));
+        }
+
+        var entities = await query
+            .OrderByDescending(k => k.Id) // Use chronological ID for natural sorting
+            .Take(maxResults)
+            .ToListAsync();
+
+        return entities.Select(ConvertToCheckpoint).ToList();
+    }
+
+    private Checkpoint ConvertToCheckpoint(KnowledgeEntity entity)
+    {
+        var metadata = !string.IsNullOrEmpty(entity.Metadata) 
+            ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(entity.Metadata) ?? new Dictionary<string, JsonElement>()
+            : new Dictionary<string, JsonElement>();
+
+        return new Checkpoint
+        {
+            Id = entity.Id,
+            SessionId = metadata.TryGetValue("SessionId", out var sessionId) 
+                ? sessionId.GetString() ?? string.Empty 
+                : string.Empty,
+            Content = entity.Content,
+            ActiveFiles = metadata.TryGetValue("ActiveFiles", out var activeFiles) 
+                ? JsonSerializer.Deserialize<string[]>(activeFiles.GetRawText()) ?? Array.Empty<string>()
+                : Array.Empty<string>(),
+            CreatedAt = entity.CreatedAt,
+            Workspace = entity.Workspace ?? string.Empty,
+            AccessCount = entity.AccessCount
+        };
+    }
+
+    // Removed duplicate method - use ChronologicalId.Generate() instead
+    
 }

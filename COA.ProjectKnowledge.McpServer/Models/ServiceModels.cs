@@ -8,9 +8,10 @@ public class StoreKnowledgeRequest
     public string[]? Tags { get; set; }
     public string? Status { get; set; }
     public string? Priority { get; set; }
-    public string[]? Metadata { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
     public CodeSnippet[]? CodeSnippets { get; set; }
     public string[]? RelatedTo { get; set; }
+    public string? Workspace { get; set; }
 }
 
 public class StoreKnowledgeResponse
@@ -26,6 +27,21 @@ public class SearchKnowledgeRequest
     public string Query { get; set; } = string.Empty;
     public string? Workspace { get; set; }
     public int? MaxResults { get; set; }
+}
+
+public class CrossWorkspaceSearchRequest
+{
+    public string Query { get; set; } = string.Empty;
+    public string[]? Workspaces { get; set; } // If null, search ALL workspaces
+    public int? MaxResults { get; set; }
+}
+
+public class ExternalContribution
+{
+    public string Type { get; set; } = KnowledgeTypes.WorkNote;
+    public string Content { get; set; } = string.Empty;
+    public string SourceId { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
 }
 
 public class SearchKnowledgeResponse
@@ -48,6 +64,11 @@ public class KnowledgeSearchItem
     public DateTime CreatedAt { get; set; }
     public DateTime ModifiedAt { get; set; }
     public int AccessCount { get; set; }
+}
+
+public class CrossWorkspaceSearchItem : KnowledgeSearchItem
+{
+    public string Workspace { get; set; } = string.Empty;
 }
 
 public class GetKnowledgeResponse

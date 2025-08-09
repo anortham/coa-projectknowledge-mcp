@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 using System.Text;
 
@@ -17,8 +18,8 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
         _knowledgeService = knowledgeService;
     }
     
-    public override string Name => "get_timeline";
-    public override string Description => "Get a timeline of knowledge items within a date/time range using chronological IDs";
+    public override string Name => ToolNames.ShowActivity;
+    public override string Description => ToolDescriptions.ShowActivity;
     public override ToolCategory Category => ToolCategory.Query;
 
     protected override async Task<GetTimelineResult> ExecuteInternalAsync(GetTimelineParams parameters, CancellationToken cancellationToken)
@@ -29,18 +30,18 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
             DateTime startDate, endDate;
             if (parameters.DaysAgo.HasValue)
             {
-                endDate = DateTime.UtcNow;
+                endDate = DateTime.Now;
                 startDate = endDate.AddDays(-parameters.DaysAgo.Value);
             }
             else if (parameters.HoursAgo.HasValue)
             {
-                endDate = DateTime.UtcNow;
+                endDate = DateTime.Now;
                 startDate = endDate.AddHours(-parameters.HoursAgo.Value);
             }
             else
             {
-                startDate = parameters.StartDate ?? DateTime.UtcNow.AddDays(-7);
-                endDate = parameters.EndDate ?? DateTime.UtcNow;
+                startDate = parameters.StartDate ?? DateTime.Now.AddDays(-7);
+                endDate = parameters.EndDate ?? DateTime.Now;
             }
             
             // Build query based on parameters
@@ -51,30 +52,38 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
                 query = $"type:{parameters.Type}";
             }
             
-            // Get all items (up to max)
-            var allItems = await _knowledgeService.SearchAsync(
-                query, 
-                parameters.Workspace, 
-                parameters.MaxResults ?? 500);
+            // Use the timeline API directly
+            var request = new TimelineRequest
+            {
+                StartDate = startDate,
+                EndDate = endDate,
+                Type = parameters.Type,
+                Workspace = parameters.Workspace,
+                MaxResults = parameters.MaxResults ?? 500
+            };
             
-            // Filter by date range
-            var filteredItems = allItems
-                .Where(k => k.CreatedAt >= startDate && k.CreatedAt <= endDate)
-                .ToList();
+            var response = await _knowledgeService.GetTimelineAsync(request);
             
-            // Sort by chronological ID (which naturally sorts by time)
-            var sortedItems = filteredItems
-                .OrderByDescending(k => k.Id) // Chronological IDs sort naturally
-                .ToList();
+            if (!response.Success)
+            {
+                return new GetTimelineResult
+                {
+                    Success = false,
+                    Timeline = new List<TimelineEntry>(),
+                    Error = new ErrorInfo { Code = "TIMELINE_FAILED", Message = response.Error ?? "Failed to get timeline" }
+                };
+            }
             
-            // Create timeline entries
+            var sortedItems = response.Timeline;
+            
+            // Create timeline entries - map TimelineItem to TimelineEntry
             var timeline = sortedItems.Select(k => new TimelineEntry
             {
                 Id = k.Id,
                 Type = k.Type,
+                Summary = k.Summary,
                 CreatedAt = k.CreatedAt,
                 ModifiedAt = k.ModifiedAt,
-                Summary = GetSummary(k),
                 Workspace = k.Workspace,
                 Tags = k.Tags,
                 Status = k.Status,
@@ -145,7 +154,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private Dictionary<string, List<TimelineEntry>> GroupByTimePeriod(List<TimelineEntry> timeline, int maxPerGroup)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var groups = new Dictionary<string, List<TimelineEntry>>();
         
         foreach (var entry in timeline)
@@ -167,7 +176,9 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private string GetTimePeriod(DateTime date, DateTime now)
     {
-        var diff = now - date;
+        // Convert UTC to local time for comparison
+        var localDate = date.Kind == DateTimeKind.Utc ? date.ToLocalTime() : date;
+        var diff = now - localDate;
         
         if (diff.TotalHours < 1) return "Last Hour";
         if (diff.TotalHours < 24) return "Today";
@@ -186,7 +197,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
         
         sb.AppendLine($"# Knowledge Timeline - {(days > 0 ? $"Last {days} Days" : "Today")}" );
         sb.AppendLine($"*{totalFound} total items found*");
-        sb.AppendLine($"*Period: {startDate:yyyy-MM-dd HH:mm} to {endDate:yyyy-MM-dd HH:mm} UTC*");
+        sb.AppendLine($"*Period: {startDate:yyyy-MM-dd HH:mm} to {endDate:yyyy-MM-dd HH:mm} Local*");
         sb.AppendLine();
         
         // Define period order
@@ -255,7 +266,9 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private string GetFriendlyTimeAgo(DateTime date)
     {
-        var diff = DateTime.UtcNow - date;
+        // Convert UTC to local time for comparison
+        var localDate = date.Kind == DateTimeKind.Utc ? date.ToLocalTime() : date;
+        var diff = DateTime.Now - localDate;
         
         if (diff.TotalMinutes < 1) return "just now";
         if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} minutes ago";
@@ -295,7 +308,7 @@ public class GetTimelineParams
 
 public class GetTimelineResult : ToolResultBase
 {
-    public override string Operation => "get_timeline";
+    public override string Operation => ToolNames.ShowActivity;
     public List<TimelineEntry> Timeline { get; set; } = new();
     public string FormattedTimeline { get; set; } = string.Empty;
     public List<TimelineGroup> Groups { get; set; } = new();

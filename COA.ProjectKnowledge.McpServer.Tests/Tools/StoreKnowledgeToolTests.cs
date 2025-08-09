@@ -16,10 +16,9 @@ namespace COA.ProjectKnowledge.McpServer.Tests.Tools;
 [TestFixture]
 public class StoreKnowledgeToolTests : ProjectKnowledgeTestBase
 {
-    private StoreKnowledgeTool _tool = null!;
-    private KnowledgeServiceEF _knowledgeService = null!;
+    private KnowledgeService _knowledgeService = null!;
     private Mock<IWorkspaceResolver> _workspaceResolverMock = null!;
-    private Mock<ILogger<KnowledgeServiceEF>> _loggerMock = null!;
+    private Mock<ILogger<KnowledgeService>> _loggerMock = null!;
 
     protected override void ConfigureTestServices(IServiceCollection services)
     {
@@ -30,25 +29,17 @@ public class StoreKnowledgeToolTests : ProjectKnowledgeTestBase
         _workspaceResolverMock.Setup(x => x.GetCurrentWorkspace()).Returns("TestWorkspace");
         services.AddSingleton(_workspaceResolverMock.Object);
 
-        _loggerMock = new Mock<ILogger<KnowledgeServiceEF>>();
+        _loggerMock = new Mock<ILogger<KnowledgeService>>();
         services.AddSingleton(_loggerMock.Object);
 
         // Add services
-        services.AddScoped<KnowledgeServiceEF>();
-        
-        // Note: StoreKnowledgeTool uses old KnowledgeService, not EF version
-        // We'll need to create a mock for testing
+        services.AddScoped<KnowledgeService>();
     }
 
     protected override void OnSetUp()
     {
         base.OnSetUp();
-        _knowledgeService = GetRequiredService<KnowledgeServiceEF>();
-        
-        // Note: We can't test the actual StoreKnowledgeTool since it uses
-        // the old KnowledgeService which requires complex dependencies.
-        // For now, we'll test the service directly.
-        // In production, tools should be updated to use KnowledgeServiceEF
+        _knowledgeService = GetRequiredService<KnowledgeService>();
     }
 
     [Test]

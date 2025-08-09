@@ -19,11 +19,23 @@ public class PathResolutionService : IPathResolutionService
     private string InitializeBasePath()
     {
         // Allow override via configuration
-        var basePath = _configuration["ProjectKnowledge:BasePath"] ?? PathConstants.BaseDirectoryName;
+        var basePath = _configuration["ProjectKnowledge:BasePath"];
         
-        if (!Path.IsPathRooted(basePath))
+        if (string.IsNullOrEmpty(basePath))
         {
-            basePath = Path.Combine(Directory.GetCurrentDirectory(), basePath);
+            // Default to ~/.coa (cross-platform user directory)
+            basePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                PathConstants.BaseDirectoryName
+            );
+        }
+        else if (!Path.IsPathRooted(basePath))
+        {
+            // If relative path provided, resolve from user directory
+            basePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                basePath
+            );
         }
         
         return Path.GetFullPath(basePath);

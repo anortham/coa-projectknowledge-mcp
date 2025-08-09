@@ -29,7 +29,7 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
                 parameters.ItemId,
                 parameters.IsCompleted);
             
-            if (updated == null)
+            if (!updated)
             {
                 return new UpdateChecklistItemResult
                 {
@@ -42,11 +42,14 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
                 };
             }
             
+            // Get the updated checklist to calculate completion percentage
+            var checklist = await _checklistService.GetChecklistAsync(parameters.ChecklistId);
+            
             return new UpdateChecklistItemResult
             {
                 Success = true,
-                CompletionPercentage = updated.CompletionPercentage,
-                Message = $"Item marked as {(parameters.IsCompleted ? "completed" : "pending")}. Checklist is {updated.CompletionPercentage:F0}% complete."
+                CompletionPercentage = checklist?.CompletionPercentage ?? 0,
+                Message = $"Item marked as {(parameters.IsCompleted ? "completed" : "pending")}. Checklist is {checklist?.CompletionPercentage:F0}% complete."
             };
         }
         catch (Exception ex)

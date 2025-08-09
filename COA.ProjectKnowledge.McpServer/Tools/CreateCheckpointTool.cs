@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,20 +17,20 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
         _checkpointService = checkpointService;
     }
     
-    public override string Name => "create_checkpoint";
-    public override string Description => "Create a checkpoint to save the current state of work";
+    public override string Name => ToolNames.SaveCheckpoint;
+    public override string Description => ToolDescriptions.SaveCheckpoint;
     public override ToolCategory Category => ToolCategory.Resources;
 
     protected override async Task<CreateCheckpointResult> ExecuteInternalAsync(CreateCheckpointParams parameters, CancellationToken cancellationToken)
     {
         try
         {
-            var sessionId = parameters.SessionId ?? $"session-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+            var sessionId = parameters.SessionId ?? $"session-{DateTime.Now:yyyy-MM-dd-HHmmss}";
             
-            var checkpoint = await _checkpointService.StoreCheckpointAsync(
+            var checkpoint = await _checkpointService.CreateCheckpointAsync(
                 parameters.Content,
                 sessionId,
-                parameters.ActiveFiles);
+                parameters.ActiveFiles?.ToList());
             
             return new CreateCheckpointResult
             {
@@ -69,7 +70,7 @@ public class CreateCheckpointParams
 
 public class CreateCheckpointResult : ToolResultBase
 {
-    public override string Operation => "create_checkpoint";
+    public override string Operation => ToolNames.SaveCheckpoint;
     public string? CheckpointId { get; set; }
     public string? SessionId { get; set; }
     public int? SequenceNumber { get; set; }

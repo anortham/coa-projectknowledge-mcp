@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 using System.Text.Json;
 
@@ -17,52 +18,42 @@ public class StoreKnowledgeTool : McpToolBase<StoreKnowledgeParams, StoreKnowled
         _knowledgeService = knowledgeService;
     }
     
-    public override string Name => "store_knowledge";
-    public override string Description => "Store knowledge in the centralized knowledge base";
+    public override string Name => ToolNames.StoreKnowledge;
+    public override string Description => ToolDescriptions.StoreKnowledge;
     public override ToolCategory Category => ToolCategory.Resources;
 
     protected override async Task<StoreKnowledgeResult> ExecuteInternalAsync(StoreKnowledgeParams parameters, CancellationToken cancellationToken)
     {
         try
         {
-            var knowledge = new Knowledge
+            var request = new StoreKnowledgeRequest
             {
                 Type = parameters.Type ?? KnowledgeTypes.WorkNote,
-                Content = parameters.Content
+                Content = parameters.Content,
+                CodeSnippets = parameters.CodeSnippets?.ToArray(),
+                Status = parameters.Status,
+                Priority = parameters.Priority,
+                Tags = parameters.Tags,
+                RelatedTo = parameters.RelatedTo,
+                Metadata = parameters.Metadata
             };
             
-            // Add code snippets if provided
-            if (parameters.CodeSnippets != null)
-            {
-                knowledge.CodeSnippets = parameters.CodeSnippets;
-            }
+            var response = await _knowledgeService.StoreKnowledgeAsync(request);
             
-            // Add metadata fields
-            if (parameters.Metadata != null)
+            if (!response.Success)
             {
-                foreach (var kvp in parameters.Metadata)
+                return new StoreKnowledgeResult
                 {
-                    knowledge.SetMetadata(kvp.Key, kvp.Value);
-                }
+                    Success = false,
+                    Error = new ErrorInfo { Code = "STORE_FAILED", Message = response.Error ?? "Failed to store knowledge" }
+                };
             }
-            
-            // Add common metadata
-            if (!string.IsNullOrEmpty(parameters.Status))
-                knowledge.SetMetadata("status", parameters.Status);
-            if (!string.IsNullOrEmpty(parameters.Priority))
-                knowledge.SetMetadata("priority", parameters.Priority);
-            if (parameters.Tags != null && parameters.Tags.Length > 0)
-                knowledge.SetMetadata("tags", parameters.Tags);
-            if (parameters.RelatedTo != null && parameters.RelatedTo.Length > 0)
-                knowledge.SetMetadata("relatedTo", parameters.RelatedTo);
-            
-            var stored = await _knowledgeService.StoreAsync(knowledge);
             
             return new StoreKnowledgeResult
             {
                 Success = true,
-                Id = stored.Id,
-                StoredType = stored.Type
+                Id = response.KnowledgeId,
+                StoredType = request.Type
             };
         }
         catch (Exception ex)
@@ -92,7 +83,7 @@ public class StoreKnowledgeParams
     public List<CodeSnippet>? CodeSnippets { get; set; }
     
     [Description("Additional metadata fields")]
-    public Dictionary<string, object>? Metadata { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
     
     [Description("Status of the knowledge item")]
     public string? Status { get; set; }
@@ -109,7 +100,7 @@ public class StoreKnowledgeParams
 
 public class StoreKnowledgeResult : ToolResultBase
 {
-    public override string Operation => "store_knowledge";
+    public override string Operation => ToolNames.StoreKnowledge;
     public string? Id { get; set; }
     public string? StoredType { get; set; }
 }

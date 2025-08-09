@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,20 +17,34 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
         _knowledgeService = knowledgeService;
     }
     
-    public override string Name => "search_knowledge";
-    public override string Description => "Search the knowledge base for relevant information";
+    public override string Name => ToolNames.FindKnowledge;
+    public override string Description => ToolDescriptions.FindKnowledge;
     public override ToolCategory Category => ToolCategory.Query;
 
     protected override async Task<SearchKnowledgeResult> ExecuteInternalAsync(SearchKnowledgeParams parameters, CancellationToken cancellationToken)
     {
         try
         {
-            var results = await _knowledgeService.SearchAsync(
-                parameters.Query,
-                parameters.Workspace,
-                parameters.MaxResults ?? 50);
-            
-            var items = results.Select(k => new KnowledgeItem
+            var request = new SearchKnowledgeRequest
+            {
+                Query = parameters.Query,
+                Workspace = parameters.Workspace,
+                MaxResults = parameters.MaxResults ?? 50
+            };
+
+            var response = await _knowledgeService.SearchKnowledgeAsync(request);
+
+            if (!response.Success)
+            {
+                return new SearchKnowledgeResult
+                {
+                    Success = false,
+                    Items = new List<KnowledgeItem>(),
+                    Error = new ErrorInfo { Code = "SEARCH_FAILED", Message = response.Error ?? "Search failed" }
+                };
+            }
+
+            var items = response.Items.Select(k => new KnowledgeItem
             {
                 Id = k.Id,
                 Type = k.Type,
@@ -48,8 +63,8 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
             {
                 Success = true,
                 Items = items,
-                TotalCount = items.Count,
-                Message = $"Found {items.Count} matching knowledge items"
+                TotalCount = response.TotalCount,
+                Message = response.Message ?? $"Found {items.Count} matching knowledge items"
             };
         }
         catch (Exception ex)
@@ -82,7 +97,7 @@ public class SearchKnowledgeParams
 
 public class SearchKnowledgeResult : ToolResultBase
 {
-    public override string Operation => "search_knowledge";
+    public override string Operation => ToolNames.FindKnowledge;
     public List<KnowledgeItem> Items { get; set; } = new();
     public int TotalCount { get; set; }
 }

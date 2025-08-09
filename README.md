@@ -1,18 +1,52 @@
 # COA ProjectKnowledge MCP
 
-A simplified knowledge management system for MCP (Model Context Protocol) that centralizes workspace-level knowledge storage with federation capabilities.
+**Production-ready knowledge management system for MCP (Model Context Protocol) with federation capabilities and AI-optimized tooling.**
 
-## Quick Start
+## 🚀 Features
 
-### Prerequisites
-- .NET 9.0 SDK
-- Visual Studio 2022 or VS Code
-- Access to COA NuGet feed (for COA.Mcp.Framework)
+✅ **Complete Knowledge Management**
+- 5 simplified knowledge types (reduced from 44+ in legacy system)  
+- Cross-platform user-level storage (`~/.coa/knowledge/`)
+- Full-text search with SQLite FTS5
+- Chronological IDs for optimal performance
+- Relationship management between knowledge items
 
-### Build and Run
+✅ **Federation System**
+- Hub-and-spoke architecture for team knowledge sharing
+- HTTP API for cross-project integration
+- Real-time knowledge synchronization
+- Multi-workspace support
 
+✅ **AI-Optimized MCP Tools**
+- 14+ MCP tools with descriptive names and guidance
+- Checkpoint system for session state management
+- Task management with checklists
+- Export to Obsidian-compatible markdown
+
+✅ **Production Quality**
+- Global .NET tool packaging
+- Comprehensive error handling  
+- Serilog file-only logging
+- Service lifetime optimizations
+
+## 📦 Installation
+
+### As Global .NET Tool (Recommended)
 ```bash
-# Build the project
+# Build release version
+dotnet build -c Release
+
+# Install globally 
+dotnet tool install --global --add-source ./COA.ProjectKnowledge.McpServer/bin/Release projectknowledge
+
+# Start federation hub
+projectknowledge --mode http --port 5100
+```
+
+### For Development
+```bash
+# Clone and build
+git clone <repository>
 cd COA.ProjectKnowledge.McpServer
 dotnet restore --configfile ../NuGet.config.local
 dotnet build
@@ -21,80 +55,143 @@ dotnet build
 dotnet run -- stdio
 
 # Run in HTTP mode (for federation)
-dotnet run -- --mode http
+dotnet run -- --mode http --port 5100
 ```
 
-### Configure in Claude Code
+## 🔧 Configuration
 
-Add to your MCP settings:
+### Claude Code Integration
+The MCP server auto-configures with Claude Code. No manual setup required.
 
-```json
-{
-  "mcpServers": {
-    "projectknowledge": {
-      "command": "dotnet",
-      "args": ["C:/source/COA ProjectKnowledge MCP/COA.ProjectKnowledge.McpServer/bin/Debug/net9.0/COA.ProjectKnowledge.McpServer.dll"],
-      "env": {}
-    }
-  }
-}
+### Federation Setup
+1. Start one instance as hub: `projectknowledge --mode http --port 5100`
+2. Configure other MCP clients to connect to the hub
+3. Knowledge automatically syncs across projects
+
+## 🛠 Available MCP Tools
+
+### Knowledge Management
+- `store_knowledge` - Capture insights, decisions, findings
+- `find_knowledge` - Search and discover information
+- `search_across_projects` - Cross-project knowledge search
+- `discover_projects` - Find available projects with knowledge
+
+### Session Management
+- `save_checkpoint` - Save current work state  
+- `load_checkpoint` - Restore previous session
+- `list_checkpoints` - View session history
+
+### Task Management
+- `create_checklist` - Create trackable task lists
+- `view_checklist` - Check task completion status
+- `update_task` - Mark tasks complete
+
+### Activity & History
+- `show_activity` - View chronological work timeline
+
+### Relationships
+- `link_knowledge` - Create knowledge connections
+- `find_connections` - Discover related information
+
+### Export & Sharing
+- `export_knowledge` - Export to Obsidian markdown
+
+## 📊 Knowledge Types
+
+| Type | Purpose | Examples |
+|------|---------|----------|
+| **Checkpoint** | Session state | Work progress, milestones |
+| **Checklist** | Task tracking | TODO lists, feature checklists |
+| **TechnicalDebt** | Issues & blockers | Bugs, performance issues |
+| **ProjectInsight** | Decisions & patterns | Architecture choices, lessons learned |  
+| **WorkNote** | General notes | Meeting notes, research findings |
+
+## 🏗 Architecture
+
+### Hub-and-Spoke Federation
+- **Central Hub**: One ProjectKnowledge instance (HTTP mode)
+- **Federation Clients**: Other MCP servers connect to hub
+- **Cross-Platform Database**: `~/.coa/knowledge/knowledge.db`
+- **Real-Time Sync**: Automatic knowledge sharing
+
+### Performance Optimizations
+- **Chronological IDs**: Natural time-based sorting
+- **Primary Key Queries**: `ORDER BY Id` instead of `ORDER BY CreatedAt`
+- **FTS5 Search**: High-performance full-text search
+- **Scoped Services**: Proper dependency injection lifetimes
+
+### Technology Stack
+- **.NET 9.0** with COA.Mcp.Framework 1.4.2
+- **SQLite** with full-text search (FTS5)
+- **Entity Framework Core** for data access
+- **Serilog** for structured logging
+- **Cross-platform** user-level storage
+
+## 🤖 AI-Optimized Design
+
+### Tool Names
+- Action-oriented: `save_checkpoint`, `find_knowledge`, `discover_projects`
+- Intuitive: `show_activity` vs `get_timeline`  
+- Clear purpose: `search_across_projects` vs `search_cross_project`
+
+### Tool Descriptions
+- Explicit guidance on when to use each tool
+- Context about purpose and benefits
+- Clear parameter explanations
+
+### Constants-Based Naming
+- `ToolNames` constants class for consistency
+- `ToolDescriptions` constants for maintainable guidance
+- No magic strings - centralized renaming
+
+## 📝 Slash Commands
+
+- `/checkpoint` - Create structured work checkpoint
+- `/resume` - Load and restore latest checkpoint
+
+## 🔄 Migration
+
+Automatic migration available from COA CodeSearch:
+- Checkpoint → Checkpoint (1:1 mapping)
+- Checklist/ChecklistItem → Checklist (combined)
+- TechnicalDebt/Blocker/BugReport → TechnicalDebt
+- ArchitecturalDecision/CodePattern → ProjectInsight
+- All others → WorkNote
+
+## 📚 Documentation
+
+- [Federation Architecture](docs/FEDERATION_ARCHITECTURE_EXPLAINED.md) - Technical architecture details
+- [API Reference](docs/API_REFERENCE.md) - Tool and HTTP API documentation  
+- [Migration Guide](docs/MIGRATION_GUIDE.md) - Migrating from legacy systems
+- [New User Setup](docs/NEW_USER_SETUP_GUIDE.md) - Getting started guide
+- [.NET Tool Packaging](docs/DOTNET_TOOL_PACKAGING.md) - Distribution details
+
+## 🧪 Testing
+
+```bash
+# Build and test
+dotnet build -c Debug
+dotnet test
+
+# Test federation
+projectknowledge --mode http --port 5100
+curl http://localhost:5100/api/knowledge/health
 ```
 
-## Features Implemented
+**Note**: After code changes, exit Claude Code, rebuild in release mode, and restart Claude Code to reload the MCP server.
 
-✅ **Core Models**
-- Knowledge base with 5 simplified types (reduced from 44+)
-- Checkpoint and Checklist support
-- Chronological ID generation for natural sorting
-- JSON metadata for flexibility
+## 🤝 Contributing
 
-✅ **Database Layer**
-- SQLite storage with full-text search
-- Automatic schema creation
-- Access tracking and archival support
+1. Follow existing code patterns and naming conventions
+2. Update `ToolNames` and `ToolDescriptions` constants for new tools
+3. Add comprehensive error handling and logging
+4. Update documentation and slash commands for any tool changes
+5. Test both STDIO and HTTP modes
 
-✅ **MCP Tools**
-- `store_knowledge` - Store knowledge with metadata
-- `search_knowledge` - Search with FTS support
+## 📄 License
 
-✅ **Services**
-- KnowledgeService for CRUD operations
-- WorkspaceResolver for automatic workspace detection
+Licensed for use within COA organization.
 
-## Knowledge Types
+---
 
-1. **Checkpoint** - Session state persistence
-2. **Checklist** - Trackable task lists
-3. **TechnicalDebt** - Issues and blockers
-4. **ProjectInsight** - Architectural decisions and patterns
-5. **WorkNote** - General development notes
-
-## Configuration
-
-Edit `appsettings.json` to customize:
-- Database location
-- Federation settings
-- Workspace detection strategy
-
-## Architecture
-
-The system follows the blueprint in `docs/IMPLEMENTATION_GUIDE.md`:
-- Simplified from 44+ memory types to 5 core types
-- SQLite database with JSON fields for flexibility
-- MCP framework 1.4.2 with auto-service support
-- Dual-mode operation (STDIO for Claude, HTTP for federation)
-
-## Next Steps
-
-- Add remaining MCP tools (Checkpoint, Checklist, Relationship)
-- Implement federation API endpoints
-- Add migration tool from COA CodeSearch
-- Create comprehensive test suite
-- Implement remaining services (RelationshipService, FederationService)
-
-## Documentation
-
-- [Implementation Guide](docs/IMPLEMENTATION_GUIDE.md) - Complete technical blueprint
-- [API Reference](docs/API_REFERENCE.md) - Tool and API documentation
-- [Migration Guide](docs/MIGRATION_GUIDE.md) - Migrating from COA CodeSearch
-- [Federation Guide](docs/FEDERATION_GUIDE.md) - Setting up federation
+**Status**: ✅ Production Ready | **Federation**: ✅ Active | **Tools**: 14+ Available

@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,8 +17,8 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
         _checkpointService = checkpointService;
     }
     
-    public override string Name => "get_checkpoint";
-    public override string Description => "Get the latest checkpoint or a specific checkpoint by ID";
+    public override string Name => ToolNames.LoadCheckpoint;
+    public override string Description => ToolDescriptions.LoadCheckpoint;
     public override ToolCategory Category => ToolCategory.Query;
 
     protected override async Task<GetCheckpointResult> ExecuteInternalAsync(GetCheckpointParams parameters, CancellationToken cancellationToken)
@@ -28,11 +29,11 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
             
             if (!string.IsNullOrEmpty(parameters.CheckpointId))
             {
-                checkpoint = await _checkpointService.RestoreCheckpointAsync(parameters.CheckpointId);
+                checkpoint = await _checkpointService.GetCheckpointAsync(checkpointId: parameters.CheckpointId);
             }
             else
             {
-                checkpoint = await _checkpointService.GetLatestCheckpointAsync(parameters.SessionId);
+                checkpoint = await _checkpointService.GetCheckpointAsync(sessionId: parameters.SessionId);
             }
             
             if (checkpoint == null)
@@ -88,7 +89,7 @@ public class GetCheckpointParams
 
 public class GetCheckpointResult : ToolResultBase
 {
-    public override string Operation => "get_checkpoint";
+    public override string Operation => ToolNames.LoadCheckpoint;
     public CheckpointInfo? Checkpoint { get; set; }
 }
 

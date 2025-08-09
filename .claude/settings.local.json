@@ -20,7 +20,20 @@
       "mcp__projectknowledge__get_timeline",
       "Bash(dotnet test:*)",
       "Bash(dotnet ef migrations add:*)",
-      "Bash(dotnet ef:*)"
+      "Bash(dotnet ef:*)",
+      "mcp__codenav__csharp_rename_symbol",
+      "mcp__codenav__csharp_load_solution",
+      "mcp__codenav__csharp_solution_wide_find_replace",
+      "mcp__codenav__csharp_symbol_search",
+      "mcp__codenav__csharp_find_unused_code",
+      "mcp__codenav__csharp_get_diagnostics",
+      "mcp__codenav__csharp_code_clone_detection",
+      "mcp__codenav__csharp_dependency_analysis",
+      "Bash(dotnet run:*)",
+      "mcp__projectknowledge__get_relationships",
+      "mcp__projectknowledge__create_relationship",
+      "mcp__projectknowledge__get_workspaces",
+      "mcp__projectknowledge__search_cross_project"
     ],
     "deny": []
   }

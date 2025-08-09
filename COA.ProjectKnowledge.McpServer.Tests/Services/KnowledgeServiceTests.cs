@@ -13,28 +13,28 @@ namespace COA.ProjectKnowledge.McpServer.Tests.Services;
 [TestFixture]
 public class KnowledgeServiceTests : ProjectKnowledgeTestBase
 {
-    private KnowledgeServiceEF _service = null!;
-    private Mock<ILogger<KnowledgeServiceEF>> _loggerMock = null!;
+    private KnowledgeService _service = null!;
+    private Mock<ILogger<KnowledgeService>> _loggerMock = null!;
     private Mock<IWorkspaceResolver> _workspaceResolverMock = null!;
 
     protected override void ConfigureTestServices(IServiceCollection services)
     {
         base.ConfigureTestServices(services);
 
-        _loggerMock = new Mock<ILogger<KnowledgeServiceEF>>();
+        _loggerMock = new Mock<ILogger<KnowledgeService>>();
         services.AddSingleton(_loggerMock.Object);
 
         _workspaceResolverMock = new Mock<IWorkspaceResolver>();
         _workspaceResolverMock.Setup(x => x.GetCurrentWorkspace()).Returns("TestWorkspace");
         services.AddSingleton(_workspaceResolverMock.Object);
 
-        services.AddScoped<KnowledgeServiceEF>();
+        services.AddScoped<KnowledgeService>();
     }
 
     protected override void OnSetUp()
     {
         base.OnSetUp();
-        _service = GetRequiredService<KnowledgeServiceEF>();
+        _service = GetRequiredService<KnowledgeService>();
     }
 
     [Test]
@@ -305,7 +305,7 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
     public void GenerateChronologicalId_ProducesValidFormat()
     {
         // Act
-        var id = _service.GenerateChronologicalId();
+        var id = ChronologicalId.Generate();
 
         // Assert
         id.Should().NotBeNullOrEmpty();

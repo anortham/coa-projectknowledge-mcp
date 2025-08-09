@@ -1,128 +1,178 @@
+using COA.ProjectKnowledge.McpServer.Data;
+using COA.ProjectKnowledge.McpServer.Data.Entities;
 using COA.ProjectKnowledge.McpServer.Models;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace COA.ProjectKnowledge.McpServer.Services;
 
 public class ChecklistService
 {
-    private readonly KnowledgeService _knowledgeService;
-    private readonly ILogger<ChecklistService> _logger;
-    
-    public ChecklistService(
-        KnowledgeService knowledgeService,
-        ILogger<ChecklistService> logger)
+    private readonly KnowledgeDbContext _context;
+    private readonly IWorkspaceResolver _workspaceResolver;
+
+    public ChecklistService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver)
     {
-        _knowledgeService = knowledgeService;
-        _logger = logger;
+        _context = context;
+        _workspaceResolver = workspaceResolver;
     }
-    
+
     public async Task<Checklist> CreateChecklistAsync(string content, List<string> items, string? parentChecklistId = null)
     {
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
         var checklist = new Checklist
         {
             Content = content,
-            ParentChecklistId = parentChecklistId,
             Items = items.Select((item, index) => new ChecklistItem
             {
+                Id = $"{ChronologicalId.Generate()}-item{index}",
                 Content = item,
-                Order = index,
-                IsCompleted = false
-            }).ToList()
+                IsCompleted = false,
+                CompletedAt = null,
+                Order = index
+            }).ToList(),
+            ParentChecklistId = parentChecklistId,
+            Workspace = workspace
         };
+
+        var entity = new KnowledgeEntity
+        {
+            Id = checklist.Id,
+            Type = KnowledgeTypes.Checklist,
+            Content = checklist.Content,
+            Metadata = JsonSerializer.Serialize(new
+            {
+                checklist.Items,
+                checklist.ParentChecklistId
+            }),
+            Tags = JsonSerializer.Serialize(new List<string> { "checklist" }),
+            Priority = "normal",
+            Status = checklist.Items.All(i => i.IsCompleted) ? "completed" : "active",
+            Workspace = checklist.Workspace,
+            CreatedAt = checklist.CreatedAt,
+            ModifiedAt = checklist.CreatedAt,
+            AccessedAt = checklist.CreatedAt,
+            AccessCount = 0
+        };
+
+        _context.Knowledge.Add(entity);
         
-        await _knowledgeService.StoreAsync(checklist);
-        
-        _logger.LogInformation("Created checklist {Id} with {Count} items", 
-            checklist.Id, checklist.Items.Count);
-        
+        // Create relationship to parent if specified
+        if (!string.IsNullOrEmpty(parentChecklistId))
+        {
+            var relationship = new RelationshipEntity
+            {
+                Id = Guid.NewGuid().ToString(),
+                FromId = parentChecklistId,
+                ToId = checklist.Id,
+                RelationshipType = "parent_of",
+                Description = "Parent checklist relationship",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Relationships.Add(relationship);
+        }
+
+        await _context.SaveChangesAsync();
+
         return checklist;
     }
-    
+
     public async Task<Checklist?> GetChecklistAsync(string checklistId)
     {
-        var knowledge = await _knowledgeService.GetByIdAsync(checklistId);
-        return knowledge as Checklist;
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
+        var entity = await _context.Knowledge
+            .FirstOrDefaultAsync(k => k.Id == checklistId 
+                && k.Type == KnowledgeTypes.Checklist 
+                && k.Workspace == workspace);
+
+        if (entity == null) return null;
+
+        // Update access tracking efficiently
+        var now = DateTime.UtcNow;
+        await _context.Database.ExecuteSqlRawAsync(
+            "UPDATE Knowledge SET AccessedAt = @now, AccessCount = AccessCount + 1 WHERE Id = @id",
+            new Microsoft.Data.Sqlite.SqliteParameter("@now", now),
+            new Microsoft.Data.Sqlite.SqliteParameter("@id", entity.Id));
+
+        return ConvertToChecklist(entity);
     }
-    
-    public async Task<Checklist?> UpdateChecklistItemAsync(string checklistId, string itemId, bool isCompleted)
+
+    public async Task<bool> UpdateChecklistItemAsync(string checklistId, string itemId, bool isCompleted)
     {
-        var updatedChecklist = await _knowledgeService.UpdateAsync(checklistId, k =>
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
+        var entity = await _context.Knowledge
+            .FirstOrDefaultAsync(k => k.Id == checklistId 
+                && k.Type == KnowledgeTypes.Checklist 
+                && k.Workspace == workspace);
+
+        if (entity == null) return false;
+
+        var checklist = ConvertToChecklist(entity);
+        var item = checklist.Items.FirstOrDefault(i => i.Id == itemId);
+        
+        if (item == null) return false;
+
+        item.IsCompleted = isCompleted;
+        item.CompletedAt = isCompleted ? DateTime.UtcNow : null;
+
+        // Update entity metadata
+        entity.Metadata = JsonSerializer.Serialize(new
         {
-            if (k is Checklist cl)
-            {
-                // Get the items list once
-                var items = cl.Items;
-                var item = items.FirstOrDefault(i => i.Id == itemId);
-                if (item != null)
-                {
-                    item.IsCompleted = isCompleted;
-                    item.CompletedAt = isCompleted ? DateTime.UtcNow : null;
-                    
-                    // Set the modified list back to trigger SetMetadata
-                    cl.Items = items;
-                }
-            }
-        }) as Checklist;
-        
-        if (updatedChecklist == null)
-        {
-            _logger.LogWarning("Checklist not found: {Id}", checklistId);
-            return null;
-        }
-        
-        var item = updatedChecklist.Items.FirstOrDefault(i => i.Id == itemId);
-        if (item == null)
-        {
-            _logger.LogWarning("Checklist item not found: {ItemId} in checklist {ChecklistId}", 
-                itemId, checklistId);
-            return null;
-        }
-        
-        _logger.LogInformation("Updated checklist item {ItemId} in checklist {ChecklistId}: completed={IsCompleted}",
-            itemId, checklistId, isCompleted);
-        
-        return updatedChecklist;
-    }
-    
-    public async Task<List<Checklist>> GetActiveChecklistsAsync(string? workspace = null, int maxResults = 20)
-    {
-        var query = $"type:{KnowledgeTypes.Checklist}";
-        var results = await _knowledgeService.SearchAsync(query, workspace, maxResults);
-        
-        return results.OfType<Checklist>()
-            .Where(c => c.CompletionPercentage < 100)
-            .OrderByDescending(c => c.ModifiedAt)
-            .ToList();
-    }
-    
-    public async Task<Checklist?> AddChecklistItemAsync(string checklistId, string itemContent)
-    {
-        var checklist = await GetChecklistAsync(checklistId);
-        if (checklist == null)
-        {
-            _logger.LogWarning("Checklist not found: {Id}", checklistId);
-            return null;
-        }
-        
-        var newItem = new ChecklistItem
-        {
-            Content = itemContent,
-            Order = checklist.Items.Count,
-            IsCompleted = false
-        };
-        
-        checklist.Items.Add(newItem);
-        
-        await _knowledgeService.UpdateAsync(checklistId, k =>
-        {
-            if (k is Checklist cl)
-            {
-                cl.Items = checklist.Items;
-            }
+            checklist.Items,
+            checklist.ParentChecklistId
         });
-        
-        _logger.LogInformation("Added item to checklist {ChecklistId}", checklistId);
-        
-        return checklist;
+        entity.Status = checklist.Items.All(i => i.IsCompleted) ? "completed" : "active";
+        entity.ModifiedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
     }
+
+    public async Task<List<Checklist>> ListChecklistsAsync(bool includeCompleted = true, int maxResults = 20)
+    {
+        var workspace = _workspaceResolver.GetCurrentWorkspace();
+        
+        IQueryable<KnowledgeEntity> query = _context.Knowledge
+            .Where(k => k.Type == KnowledgeTypes.Checklist && k.Workspace == workspace);
+
+        if (!includeCompleted)
+        {
+            query = query.Where(k => k.Status != "completed");
+        }
+
+        var entities = await query
+            .OrderByDescending(k => k.Id) // Use chronological ID for natural sorting
+            .Take(maxResults)
+            .ToListAsync();
+
+        return entities.Select(ConvertToChecklist).ToList();
+    }
+
+    private Checklist ConvertToChecklist(KnowledgeEntity entity)
+    {
+        var metadata = !string.IsNullOrEmpty(entity.Metadata) 
+            ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(entity.Metadata) ?? new Dictionary<string, JsonElement>()
+            : new Dictionary<string, JsonElement>();
+
+        return new Checklist
+        {
+            Id = entity.Id,
+            Content = entity.Content,
+            Items = metadata.TryGetValue("Items", out var items) 
+                ? JsonSerializer.Deserialize<List<ChecklistItem>>(items.GetRawText()) ?? new List<ChecklistItem>()
+                : new List<ChecklistItem>(),
+            ParentChecklistId = metadata.TryGetValue("ParentChecklistId", out var parentId) 
+                ? parentId.GetString() 
+                : null,
+            CreatedAt = entity.CreatedAt,
+            Workspace = entity.Workspace ?? string.Empty
+        };
+    }
+
+    // Removed duplicate method - use ChronologicalId.Generate() instead
 }

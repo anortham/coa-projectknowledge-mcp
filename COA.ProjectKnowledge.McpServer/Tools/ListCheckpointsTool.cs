@@ -24,7 +24,7 @@ public class ListCheckpointsTool : McpToolBase<ListCheckpointsParams, ListCheckp
     {
         try
         {
-            var checkpoints = await _checkpointService.GetCheckpointTimelineAsync(
+            var checkpoints = await _checkpointService.ListCheckpointsAsync(
                 parameters.SessionId,
                 parameters.MaxResults ?? 20);
             

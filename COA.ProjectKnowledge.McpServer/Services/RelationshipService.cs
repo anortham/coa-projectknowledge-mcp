@@ -1,20 +1,22 @@
 using COA.ProjectKnowledge.McpServer.Models;
-using COA.ProjectKnowledge.McpServer.Storage;
+using COA.ProjectKnowledge.McpServer.Data;
+using COA.ProjectKnowledge.McpServer.Data.Entities;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 namespace COA.ProjectKnowledge.McpServer.Services;
 
 public class RelationshipService
 {
-    private readonly KnowledgeDatabase _database;
+    private readonly KnowledgeDbContext _context;
     private readonly ILogger<RelationshipService> _logger;
     
     public RelationshipService(
-        KnowledgeDatabase database,
+        KnowledgeDbContext context,
         ILogger<RelationshipService> logger)
     {
-        _database = database;
+        _context = context;
         _logger = logger;
     }
     
@@ -24,39 +26,82 @@ public class RelationshipService
         string relationshipType,
         Dictionary<string, object>? metadata = null)
     {
-        var relationship = new Relationship
+        var entity = new RelationshipEntity
         {
+            Id = Guid.NewGuid().ToString(),
             FromId = fromId,
             ToId = toId,
             RelationshipType = relationshipType,
-            Metadata = metadata ?? new Dictionary<string, object>(),
+            Description = metadata != null ? JsonSerializer.Serialize(metadata) : null,
             CreatedAt = DateTime.UtcNow
         };
         
-        await _database.InsertRelationshipAsync(relationship);
+        _context.Relationships.Add(entity);
+        await _context.SaveChangesAsync();
         
         _logger.LogInformation("Created relationship: {FromId} -> {ToId} ({Type})", 
             fromId, toId, relationshipType);
+        
+        var relationship = new Relationship
+        {
+            FromId = entity.FromId,
+            ToId = entity.ToId,
+            RelationshipType = entity.RelationshipType,
+            Metadata = metadata ?? new Dictionary<string, object>(),
+            CreatedAt = entity.CreatedAt
+        };
         
         return relationship;
     }
     
     public async Task<List<Relationship>> GetRelationshipsAsync(string knowledgeId, RelationshipDirection direction = RelationshipDirection.Both)
     {
-        return await _database.GetRelationshipsAsync(knowledgeId, direction);
+        var query = _context.Relationships.AsQueryable();
+        
+        switch (direction)
+        {
+            case RelationshipDirection.From:
+                query = query.Where(r => r.FromId == knowledgeId);
+                break;
+            case RelationshipDirection.To:
+                query = query.Where(r => r.ToId == knowledgeId);
+                break;
+            case RelationshipDirection.Both:
+                query = query.Where(r => r.FromId == knowledgeId || r.ToId == knowledgeId);
+                break;
+        }
+        
+        var entities = await query.ToListAsync();
+        
+        return entities.Select(e => new Relationship
+        {
+            FromId = e.FromId,
+            ToId = e.ToId,
+            RelationshipType = e.RelationshipType,
+            Metadata = !string.IsNullOrEmpty(e.Description) 
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(e.Description) ?? new Dictionary<string, object>()
+                : new Dictionary<string, object>(),
+            CreatedAt = e.CreatedAt
+        }).ToList();
     }
     
     public async Task<bool> DeleteRelationshipAsync(string fromId, string toId, string relationshipType)
     {
-        var deleted = await _database.DeleteRelationshipAsync(fromId, toId, relationshipType);
+        var entity = await _context.Relationships
+            .FirstOrDefaultAsync(r => r.FromId == fromId && r.ToId == toId && r.RelationshipType == relationshipType);
         
-        if (deleted)
+        if (entity == null)
         {
-            _logger.LogInformation("Deleted relationship: {FromId} -> {ToId} ({Type})", 
-                fromId, toId, relationshipType);
+            return false;
         }
         
-        return deleted;
+        _context.Relationships.Remove(entity);
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Deleted relationship: {FromId} -> {ToId} ({Type})", 
+            fromId, toId, relationshipType);
+        
+        return true;
     }
     
     public async Task<Dictionary<string, List<string>>> GetRelationshipGraphAsync(string knowledgeId, int maxDepth = 2)
