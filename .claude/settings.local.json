@@ -33,7 +33,10 @@
       "mcp__projectknowledge__get_relationships",
       "mcp__projectknowledge__create_relationship",
       "mcp__projectknowledge__get_workspaces",
-      "mcp__projectknowledge__search_cross_project"
+      "mcp__projectknowledge__search_cross_project",
+      "mcp__projectknowledge__save_checkpoint",
+      "mcp__projectknowledge__load_checkpoint",
+      "mcp__projectknowledge__show_activity"
     ],
     "deny": []
   }

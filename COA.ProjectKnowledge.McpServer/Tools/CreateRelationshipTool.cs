@@ -2,6 +2,7 @@ using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -15,7 +16,7 @@ public class CreateRelationshipTool : McpToolBase<CreateRelationshipParams, Crea
         _relationshipService = relationshipService;
     }
     
-    public override string Name => "create_relationship";
+    public override string Name => ToolNames.LinkKnowledge;
     public override string Description => "Create a relationship between two knowledge items";
     public override ToolCategory Category => ToolCategory.Resources;
 

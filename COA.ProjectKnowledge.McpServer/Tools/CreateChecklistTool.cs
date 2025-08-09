@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,7 +17,7 @@ public class CreateChecklistTool : McpToolBase<CreateChecklistParams, CreateChec
         _checklistService = checklistService;
     }
     
-    public override string Name => "create_checklist";
+    public override string Name => ToolNames.CreateChecklist;
     public override string Description => "Create a new checklist with items to track";
     public override ToolCategory Category => ToolCategory.Resources;
 

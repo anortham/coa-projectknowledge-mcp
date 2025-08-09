@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,7 +17,7 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
         _checklistService = checklistService;
     }
     
-    public override string Name => "update_checklist_item";
+    public override string Name => ToolNames.UpdateTask;
     public override string Description => "Update the status of a checklist item";
     public override ToolCategory Category => ToolCategory.Resources;
 

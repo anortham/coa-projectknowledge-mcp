@@ -2,6 +2,7 @@ using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -15,7 +16,7 @@ public class ExportKnowledgeTool : McpToolBase<ExportKnowledgeParams, ExportKnow
         _exportService = exportService;
     }
     
-    public override string Name => "export_knowledge";
+    public override string Name => ToolNames.ExportKnowledge;
     public override string Description => "Export knowledge to Obsidian-compatible markdown files";
     public override ToolCategory Category => ToolCategory.Resources;
 

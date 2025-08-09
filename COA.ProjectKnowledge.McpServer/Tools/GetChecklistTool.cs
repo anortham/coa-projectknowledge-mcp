@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,7 +17,7 @@ public class GetChecklistTool : McpToolBase<GetChecklistParams, GetChecklistResu
         _checklistService = checklistService;
     }
     
-    public override string Name => "get_checklist";
+    public override string Name => ToolNames.ViewChecklist;
     public override string Description => "Get a checklist with its current status";
     public override ToolCategory Category => ToolCategory.Query;
 

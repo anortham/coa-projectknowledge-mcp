@@ -2,6 +2,7 @@ using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -15,7 +16,7 @@ public class GetRelationshipsTool : McpToolBase<GetRelationshipsParams, GetRelat
         _relationshipService = relationshipService;
     }
     
-    public override string Name => "get_relationships";
+    public override string Name => ToolNames.FindConnections;
     public override string Description => "Get all relationships for a knowledge item";
     public override ToolCategory Category => ToolCategory.Query;
 

@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Constants;
 using System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
@@ -16,7 +17,7 @@ public class ListCheckpointsTool : McpToolBase<ListCheckpointsParams, ListCheckp
         _checkpointService = checkpointService;
     }
     
-    public override string Name => "list_checkpoints";
+    public override string Name => ToolNames.ListCheckpoints;
     public override string Description => "List checkpoints for a session";
     public override ToolCategory Category => ToolCategory.Query;
 
