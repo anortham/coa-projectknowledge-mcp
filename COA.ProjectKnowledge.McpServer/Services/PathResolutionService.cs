@@ -54,7 +54,7 @@ public class PathResolutionService : IPathResolutionService
     
     public string GetLogsPath()
     {
-        var logsPath = Path.Combine(_basePath, PathConstants.LogsDirectoryName);
+        var logsPath = Path.Combine(_basePath, PathConstants.KnowledgeDirectoryName, PathConstants.LogsDirectoryName);
         return logsPath;
     }
     

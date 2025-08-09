@@ -20,7 +20,7 @@ public interface IPathResolutionService
     /// <summary>
     /// Gets the logs directory path
     /// </summary>
-    /// <returns>The full path to the logs directory (e.g., ".coa/logs")</returns>
+    /// <returns>The full path to the logs directory (e.g., ".coa/knowledge/logs")</returns>
     string GetLogsPath();
     
     /// <summary>
