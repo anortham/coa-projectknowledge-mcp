@@ -2,6 +2,7 @@ using COA.ProjectKnowledge.McpServer.Data;
 using COA.ProjectKnowledge.McpServer.Data.Entities;
 using COA.ProjectKnowledge.McpServer.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
@@ -12,12 +13,14 @@ public class CheckpointService
     private readonly KnowledgeDbContext _context;
     private readonly IWorkspaceResolver _workspaceResolver;
     private readonly RealTimeNotificationService _notificationService;
+    private readonly ILogger<CheckpointService> _logger;
 
-    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver, RealTimeNotificationService notificationService)
+    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver, RealTimeNotificationService notificationService, ILogger<CheckpointService> logger)
     {
         _context = context;
         _workspaceResolver = workspaceResolver;
         _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<Checkpoint> CreateCheckpointAsync(string content, string? sessionId = null, List<string>? activeFiles = null)
@@ -65,8 +68,8 @@ public class CheckpointService
             }
             catch (Exception ex)
             {
-                // Don't have logger in CheckpointService, so just swallow this error
-                // The checkpoint was saved successfully, notification failure shouldn't affect that
+                _logger.LogError(ex, "Failed to broadcast checkpoint creation notification for checkpoint {CheckpointId} in session {SessionId}", checkpoint.Id, checkpoint.SessionId);
+                // The checkpoint was saved successfully, notification failure shouldn't affect the main operation
             }
         });
 

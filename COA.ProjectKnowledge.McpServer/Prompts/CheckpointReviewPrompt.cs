@@ -35,21 +35,21 @@ public class CheckpointReviewPrompt : PromptBase
         }
     };
 
-    public override async Task<GetPromptResult> RenderAsync(
+    public override Task<GetPromptResult> RenderAsync(
         Dictionary<string, object>? arguments = null,
         CancellationToken cancellationToken = default)
     {
         var validation = ValidateArguments(arguments);
         if (!validation.IsValid)
         {
-            return new GetPromptResult
+            return Task.FromResult(new GetPromptResult
             {
                 Description = "Invalid arguments",
                 Messages = new List<PromptMessage>
                 {
                     CreateSystemMessage($"Error: {string.Join(", ", validation.Errors)}")
                 }
-            };
+            });
         }
 
         var sessionId = GetRequiredArgument<string>(arguments, "sessionId");
@@ -120,10 +120,10 @@ Would you like me to restore this session and set up your workspace?";
 
         messages.Add(CreateAssistantMessage(assistantResponse));
 
-        return new GetPromptResult
+        return Task.FromResult(new GetPromptResult
         {
             Description = $"{action} checkpoint for session {sessionId}",
             Messages = messages
-        };
+        });
     }
 }

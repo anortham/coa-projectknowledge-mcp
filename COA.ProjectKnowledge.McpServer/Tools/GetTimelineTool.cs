@@ -3,6 +3,8 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.Mcp.Framework.Exceptions;
 using COA.Mcp.Framework.Interfaces;
+using COA.Mcp.Framework.TokenOptimization;
+using COA.Mcp.Framework.TokenOptimization.Caching;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
@@ -11,6 +13,8 @@ using COA.ProjectKnowledge.McpServer.Resources;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 using System.Text;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 // Use framework attributes with aliases to avoid conflicts
 using FrameworkAttributes = COA.Mcp.Framework.Attributes;
@@ -22,13 +26,25 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
 {
     private readonly KnowledgeService _knowledgeService;
     private readonly KnowledgeResourceProvider _resourceProvider;
+    private readonly ITokenEstimator _tokenEstimator;
+    private readonly IResponseCacheService _cacheService;
+    private readonly ExecutionContextService _contextService;
+    private readonly ILogger<GetTimelineTool> _logger;
     
     public GetTimelineTool(
         KnowledgeService knowledgeService,
-        KnowledgeResourceProvider resourceProvider)
+        KnowledgeResourceProvider resourceProvider,
+        ITokenEstimator tokenEstimator,
+        IResponseCacheService cacheService,
+        ExecutionContextService contextService,
+        ILogger<GetTimelineTool> logger)
     {
         _knowledgeService = knowledgeService;
         _resourceProvider = resourceProvider;
+        _tokenEstimator = tokenEstimator;
+        _cacheService = cacheService;
+        _contextService = contextService;
+        _logger = logger;
     }
     
     public override string Name => ToolNames.ShowActivity;
@@ -37,6 +53,42 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
 
     protected override async Task<GetTimelineResult> ExecuteInternalAsync(GetTimelineParams parameters, CancellationToken cancellationToken)
     {
+        // Create execution context for tracking
+        var customData = new Dictionary<string, object?>
+        {
+            ["DaysAgo"] = parameters.DaysAgo,
+            ["HoursAgo"] = parameters.HoursAgo,
+            ["Type"] = parameters.Type,
+            ["Workspace"] = parameters.Workspace ?? "default",
+            ["MaxResults"] = parameters.MaxResults ?? 500
+        };
+        
+        return await _contextService.RunWithContextAsync(
+            Name,
+            async (context) => await ExecuteWithContextAsync(parameters, context, cancellationToken),
+            customData: customData);
+    }
+    
+    private async Task<GetTimelineResult> ExecuteWithContextAsync(
+        GetTimelineParams parameters, 
+        ToolExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        // Generate cache key for this timeline request
+        var cacheKey = GenerateCacheKey(parameters);
+        
+        // Check cache first
+        if (_cacheService != null)
+        {
+            var cachedResult = await _cacheService.GetAsync<GetTimelineResult>(cacheKey);
+            if (cachedResult != null)
+            {
+                _logger.LogDebug("Returning cached timeline for key: {CacheKey}", cacheKey);
+                context.CustomData["CacheHit"] = true;
+                return cachedResult;
+            }
+        }
+        
         try
         {
             // Determine date range
@@ -110,7 +162,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
             // Build formatted timeline
             var formattedTimeline = BuildFormattedTimeline(groups, timeline.Count, startDate, endDate);
             
-            return new GetTimelineResult
+            var result = new GetTimelineResult
             {
                 Success = true,
                 Timeline = timeline,
@@ -125,9 +177,55 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
                 DateRange = new DateRange { From = startDate, To = endDate },
                 Message = $"Found {timeline.Count} items from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}"
             };
+            
+            // Check if result is too large and needs resource storage
+            var estimatedTokens = _tokenEstimator.EstimateObject(result);
+            context.CustomData["EstimatedTokens"] = estimatedTokens;
+            
+            if (estimatedTokens > 10000 && timeline.Count > 50)
+            {
+                // Store full results as resource
+                var timelineId = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8)}";
+                var resourceUri = _resourceProvider.StoreAsResource(
+                    "timeline",
+                    timelineId,
+                    timeline,
+                    $"Full timeline results ({timeline.Count} items)");
+                
+                // Return truncated result with resource URI
+                result.Timeline = timeline.Take(50).ToList();
+                result.ResourceUri = resourceUri;
+                result.Meta = new ToolExecutionMetadata
+                {
+                    Truncated = true,
+                    Tokens = _tokenEstimator.EstimateObject(result)
+                };
+                
+                _logger.LogInformation("Timeline truncated from {Full} to {Truncated} items, full data at {Uri}",
+                    timeline.Count, result.Timeline.Count, resourceUri);
+            }
+            
+            // Cache the result for 5 minutes
+            if (_cacheService != null)
+            {
+                try
+                {
+                    await _cacheService.SetAsync(cacheKey, result, new CacheEntryOptions());
+                    context.CustomData["CacheSet"] = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to cache timeline for key: {CacheKey}", cacheKey);
+                }
+            }
+            
+            return result;
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to get timeline");
+            context.CustomData["Error"] = true;
+            
             return new GetTimelineResult
             {
                 Success = false,
@@ -135,6 +233,28 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
                 Error = ErrorHelpers.CreateTimelineError($"Failed to get timeline: {ex.Message}")
             };
         }
+    }
+    
+    private string GenerateCacheKey(GetTimelineParams parameters)
+    {
+        // Create a deterministic cache key based on parameters
+        var keyData = new
+        {
+            Tool = Name,
+            DaysAgo = parameters.DaysAgo,
+            HoursAgo = parameters.HoursAgo,
+            StartDate = parameters.StartDate?.ToString("yyyyMMddHHmmss"),
+            EndDate = parameters.EndDate?.ToString("yyyyMMddHHmmss"),
+            Type = parameters.Type,
+            Workspace = parameters.Workspace,
+            MaxPerGroup = parameters.MaxPerGroup,
+            MaxResults = parameters.MaxResults
+        };
+        
+        var json = JsonSerializer.Serialize(keyData);
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+        return $"timeline_{Convert.ToBase64String(hash).Replace("/", "_").Replace("+", "-").Substring(0, 16)}";
     }
     
     private string GetSummary(Knowledge item)

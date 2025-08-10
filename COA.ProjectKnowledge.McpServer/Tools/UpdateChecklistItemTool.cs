@@ -19,10 +19,17 @@ namespace COA.ProjectKnowledge.McpServer.Tools;
 public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, UpdateChecklistItemResult>
 {
     private readonly ChecklistService _checklistService;
+    private readonly ExecutionContextService _contextService;
+    private readonly ILogger<UpdateChecklistItemTool> _logger;
     
-    public UpdateChecklistItemTool(ChecklistService checklistService)
+    public UpdateChecklistItemTool(
+        ChecklistService checklistService,
+        ExecutionContextService contextService,
+        ILogger<UpdateChecklistItemTool> logger)
     {
         _checklistService = checklistService;
+        _contextService = contextService;
+        _logger = logger;
     }
     
     public override string Name => ToolNames.UpdateTask;
@@ -30,6 +37,25 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
     public override ToolCategory Category => ToolCategory.Resources;
 
     protected override async Task<UpdateChecklistItemResult> ExecuteInternalAsync(UpdateChecklistItemParams parameters, CancellationToken cancellationToken)
+    {
+        // Create execution context for tracking
+        var customData = new Dictionary<string, object?>
+        {
+            ["ChecklistId"] = parameters.ChecklistId,
+            ["ItemId"] = parameters.ItemId,
+            ["IsCompleted"] = parameters.IsCompleted
+        };
+        
+        return await _contextService.RunWithContextAsync(
+            Name,
+            async (context) => await ExecuteWithContextAsync(parameters, context, cancellationToken),
+            customData: customData);
+    }
+    
+    private async Task<UpdateChecklistItemResult> ExecuteWithContextAsync(
+        UpdateChecklistItemParams parameters,
+        ToolExecutionContext context,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -50,6 +76,8 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
             // Get the updated checklist to calculate completion percentage
             var checklist = await _checklistService.GetChecklistAsync(parameters.ChecklistId);
             
+            context.CustomData["CompletionPercentage"] = checklist?.CompletionPercentage ?? 0;
+            
             return new UpdateChecklistItemResult
             {
                 Success = true,
@@ -59,6 +87,9 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to update checklist item");
+            context.CustomData["Error"] = true;
+            
             return new UpdateChecklistItemResult
             {
                 Success = false,

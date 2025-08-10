@@ -120,13 +120,15 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
 
             if (!response.Success)
             {
-                throw new ToolExecutionException(
-                    Name,
-                    response.Error ?? "Search failed");
+                return new SearchKnowledgeResult
+                {
+                    Success = false,
+                    Error = ErrorHelpers.CreateSearchError(response.Error ?? "Search failed")
+                };
             }
 
             // Convert KnowledgeSearchItem to Knowledge for the response builder
-            var knowledgeItems = response.Items.Select(item => 
+            var knowledgeItems = response.Items?.Select(item => 
             {
                 var knowledge = new Knowledge
                 {
@@ -145,7 +147,7 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
                 if (item.Priority != null) knowledge.SetMetadata("priority", item.Priority);
                 
                 return knowledge;
-            }).ToList();
+            }).ToList() ?? new List<Knowledge>();
             
             // Build token-aware response using ResponseBuilder
             var responseContext = new ResponseContext
@@ -270,7 +272,7 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
             }
             
             // Fallback to simple response if builder returns non-AI response
-            var items = response.Items.Select(k => new KnowledgeItem
+            var items = response.Items?.Select(k => new KnowledgeItem
             {
                 Id = k.Id,
                 Type = k.Type,
@@ -283,7 +285,7 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
                 Tags = k.Tags,
                 Status = k.Status,
                 Priority = k.Priority
-            }).ToList();
+            }).ToList() ?? new List<KnowledgeItem>();
             
             var result = new SearchKnowledgeResult
             {
@@ -312,16 +314,20 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
         }
         catch (ArgumentException ex)
         {
-            throw new ParameterValidationException(
-                ValidationResult.Failure("query", ex.Message));
+            return new SearchKnowledgeResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateSearchError($"Invalid parameters: {ex.Message}")
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during search");
-            throw new ToolExecutionException(
-                Name,
-                $"An unexpected error occurred during search: {ex.Message}",
-                ex);
+            return new SearchKnowledgeResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateSearchError($"An unexpected error occurred during search: {ex.Message}")
+            };
         }
     }
     

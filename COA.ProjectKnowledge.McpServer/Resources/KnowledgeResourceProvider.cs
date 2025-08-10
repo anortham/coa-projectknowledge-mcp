@@ -10,13 +10,14 @@ namespace COA.ProjectKnowledge.McpServer.Resources;
 /// <summary>
 /// Provides URI-addressable resources for large knowledge data sets.
 /// Handles exports, search results, and checkpoint data that exceed token limits.
+/// Uses the framework's IResourceCache for proper lifetime management.
 /// </summary>
 public class KnowledgeResourceProvider : IResourceProvider
 {
     private readonly KnowledgeService _knowledgeService;
     private readonly CheckpointService _checkpointService;
+    private readonly IResourceCache _resourceCache;
     private readonly ILogger<KnowledgeResourceProvider> _logger;
-    private readonly Dictionary<string, CachedResource> _resourceCache = new();
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(15);
 
     public string Scheme => "knowledge";
@@ -26,10 +27,12 @@ public class KnowledgeResourceProvider : IResourceProvider
     public KnowledgeResourceProvider(
         KnowledgeService knowledgeService,
         CheckpointService checkpointService,
+        IResourceCache resourceCache,
         ILogger<KnowledgeResourceProvider> logger)
     {
         _knowledgeService = knowledgeService;
         _checkpointService = checkpointService;
+        _resourceCache = resourceCache;
         _logger = logger;
     }
 
@@ -40,24 +43,9 @@ public class KnowledgeResourceProvider : IResourceProvider
 
     public Task<List<Resource>> ListResourcesAsync(CancellationToken cancellationToken = default)
     {
-        var resources = new List<Resource>();
-
-        // Clean expired cache entries
-        CleanExpiredCache();
-
-        // Add cached resources
-        foreach (var cached in _resourceCache.Values.Where(c => !c.IsExpired))
-        {
-            resources.Add(new Resource
-            {
-                Uri = cached.Uri,
-                Name = cached.Name,
-                Description = cached.Description,
-                MimeType = cached.MimeType
-            });
-        }
-
-        return Task.FromResult(resources);
+        // The framework manages the cache, we don't need to list cached resources
+        // Return an empty list as cached resources are accessed directly by URI
+        return Task.FromResult(new List<Resource>());
     }
 
     public async Task<ReadResourceResult?> ReadResourceAsync(string uri, CancellationToken cancellationToken = default)
@@ -67,22 +55,12 @@ public class KnowledgeResourceProvider : IResourceProvider
 
         try
         {
-            // Check cache first
-            if (_resourceCache.TryGetValue(uri, out var cached) && !cached.IsExpired)
+            // Check cache first - the framework handles expiration
+            var cachedResult = await _resourceCache.GetAsync(uri);
+            if (cachedResult != null)
             {
                 _logger.LogDebug("Returning cached resource: {Uri}", uri);
-                return new ReadResourceResult
-                {
-                    Contents = new List<ResourceContent>
-                    {
-                        new ResourceContent
-                        {
-                            Uri = uri,
-                            MimeType = cached.MimeType,
-                            Text = cached.Content
-                        }
-                    }
-                };
+                return cachedResult;
             }
 
             // Parse URI to determine resource type
@@ -93,11 +71,28 @@ public class KnowledgeResourceProvider : IResourceProvider
                 return null;
             }
 
-            // Generate resource content based on type
+            // For stored resources (search, timeline), we can't regenerate them
+            if (parsedUri.Type == "search" || parsedUri.Type == "timeline")
+            {
+                _logger.LogWarning("Stored resource expired and cannot be regenerated: {Uri}", uri);
+                return new ReadResourceResult
+                {
+                    Contents = new List<ResourceContent>
+                    {
+                        new ResourceContent
+                        {
+                            Uri = uri,
+                            MimeType = "text/plain",
+                            Text = "Resource has expired and is no longer available. Please run the operation again."
+                        }
+                    }
+                };
+            }
+
+            // Try to generate resource content for types that can be regenerated
             var content = parsedUri.Type switch
             {
-                "export" => await GenerateExportResource(parsedUri.Id, parsedUri.Parameters, cancellationToken),
-                "search" => await GenerateSearchResource(parsedUri.Id, parsedUri.Parameters, cancellationToken),
+                "export" when parsedUri.Parameters.Count > 0 => await GenerateExportResource(parsedUri.Id, parsedUri.Parameters, cancellationToken),
                 "checkpoint" => await GenerateCheckpointResource(parsedUri.Id, cancellationToken),
                 "session" => await GenerateSessionResource(parsedUri.Id, cancellationToken),
                 _ => null
@@ -106,13 +101,22 @@ public class KnowledgeResourceProvider : IResourceProvider
             if (content == null)
             {
                 _logger.LogWarning("Could not generate content for resource: {Uri}", uri);
-                return null;
+                return new ReadResourceResult
+                {
+                    Contents = new List<ResourceContent>
+                    {
+                        new ResourceContent
+                        {
+                            Uri = uri,
+                            MimeType = "text/plain",
+                            Text = "Resource not found or could not be generated."
+                        }
+                    }
+                };
             }
 
-            // Cache the resource
-            CacheResource(uri, content.Name, content.Description, content.MimeType, content.Text);
-
-            return new ReadResourceResult
+            // Create result and cache it
+            var result = new ReadResourceResult
             {
                 Contents = new List<ResourceContent>
                 {
@@ -124,18 +128,34 @@ public class KnowledgeResourceProvider : IResourceProvider
                     }
                 }
             };
+
+            // Cache the generated resource
+            await _resourceCache.SetAsync(uri, result, _cacheExpiry);
+
+            return result;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error reading resource: {Uri}", uri);
-            return null;
+            return new ReadResourceResult
+            {
+                Contents = new List<ResourceContent>
+                {
+                    new ResourceContent
+                    {
+                        Uri = uri,
+                        MimeType = "text/plain",
+                        Text = $"Error reading resource: {ex.Message}"
+                    }
+                }
+            };
         }
     }
 
     /// <summary>
     /// Stores data as a resource and returns the URI for accessing it.
     /// </summary>
-    public string StoreAsResource<T>(string type, string id, T data, string? description = null)
+    public async Task<string> StoreAsResourceAsync<T>(string type, string id, T data, string? description = null)
     {
         var uri = $"{Scheme}://{type}/{id}";
         var json = JsonSerializer.Serialize(data, new JsonSerializerOptions 
@@ -144,18 +164,32 @@ public class KnowledgeResourceProvider : IResourceProvider
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        var name = type switch
+        var result = new ReadResourceResult
         {
-            "export" => $"Knowledge Export {id}",
-            "search" => $"Search Results {id}",
-            "checkpoint" => $"Checkpoint {id}",
-            _ => $"{type} {id}"
+            Contents = new List<ResourceContent>
+            {
+                new ResourceContent
+                {
+                    Uri = uri,
+                    MimeType = "application/json",
+                    Text = json
+                }
+            }
         };
 
-        CacheResource(uri, name, description ?? $"Resource for {type}", "application/json", json);
+        // Store in cache with configured expiration
+        await _resourceCache.SetAsync(uri, result, _cacheExpiry);
         
         _logger.LogDebug("Stored resource: {Uri} ({Size} bytes)", uri, json.Length);
         return uri;
+    }
+    
+    /// <summary>
+    /// Synchronous version for backward compatibility
+    /// </summary>
+    public string StoreAsResource<T>(string type, string id, T data, string? description = null)
+    {
+        return StoreAsResourceAsync(type, id, data, description).GetAwaiter().GetResult();
     }
 
     private async Task<InternalResourceContent?> GenerateExportResource(string id, Dictionary<string, string> parameters, CancellationToken cancellationToken)
@@ -181,29 +215,6 @@ public class KnowledgeResourceProvider : IResourceProvider
         {
             Name = $"Knowledge Export - {workspace ?? "All Workspaces"}",
             Description = $"Export of {items.Count} knowledge items",
-            MimeType = "application/json",
-            Text = json
-        };
-    }
-
-    private async Task<InternalResourceContent?> GenerateSearchResource(string id, Dictionary<string, string> parameters, CancellationToken cancellationToken)
-    {
-        var query = parameters.GetValueOrDefault("query", "");
-        var workspace = parameters.GetValueOrDefault("workspace");
-        var maxResults = int.Parse(parameters.GetValueOrDefault("max", "100") ?? "100");
-
-        var results = await _knowledgeService.SearchAsync(query, workspace, maxResults, cancellationToken);
-
-        var json = JsonSerializer.Serialize(results, new JsonSerializerOptions 
-        { 
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        return new InternalResourceContent
-        {
-            Name = $"Search Results - '{query}'",
-            Description = $"Found {results.Count} matching items",
             MimeType = "application/json",
             Text = json
         };
@@ -289,57 +300,11 @@ public class KnowledgeResourceProvider : IResourceProvider
         }
     }
 
-    private void CacheResource(string uri, string name, string description, string mimeType, string content)
-    {
-        _resourceCache[uri] = new CachedResource
-        {
-            Uri = uri,
-            Name = name,
-            Description = description,
-            MimeType = mimeType,
-            Content = content,
-            CachedAt = DateTime.UtcNow
-        };
-
-        // Clean old entries if cache is getting large
-        if (_resourceCache.Count > 100)
-        {
-            CleanExpiredCache();
-        }
-    }
-
-    private void CleanExpiredCache()
-    {
-        var expired = _resourceCache
-            .Where(kvp => kvp.Value.IsExpired)
-            .Select(kvp => kvp.Key)
-            .ToList();
-
-        foreach (var key in expired)
-        {
-            _resourceCache.Remove(key);
-        }
-
-        _logger.LogDebug("Cleaned {Count} expired cache entries", expired.Count);
-    }
-
     private class ParsedResourceUri
     {
         public string Type { get; set; } = "";
         public string Id { get; set; } = "";
         public Dictionary<string, string> Parameters { get; set; } = new();
-    }
-
-    private class CachedResource
-    {
-        public string Uri { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string Description { get; set; } = "";
-        public string MimeType { get; set; } = "";
-        public string Content { get; set; } = "";
-        public DateTime CachedAt { get; set; }
-        
-        public bool IsExpired => DateTime.UtcNow - CachedAt > TimeSpan.FromMinutes(15);
     }
 
     private class InternalResourceContent

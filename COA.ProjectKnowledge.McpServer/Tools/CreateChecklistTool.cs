@@ -50,16 +50,20 @@ public class CreateChecklistTool : McpToolBase<CreateChecklistParams, CreateChec
         }
         catch (ArgumentException ex)
         {
-            throw new ParameterValidationException(
-                ValidationResult.Failure("parameters", ex.Message));
+            return new CreateChecklistResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateChecklistError($"Invalid parameters: {ex.Message}", "create")
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create checklist");
-            throw new ToolExecutionException(
-                Name,
-                $"Failed to create checklist: {ex.Message}",
-                ex);
+            return new CreateChecklistResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateChecklistError($"Failed to create checklist: {ex.Message}", "create")
+            };
         }
     }
 }

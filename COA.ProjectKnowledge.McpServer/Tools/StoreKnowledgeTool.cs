@@ -59,7 +59,7 @@ public class StoreKnowledgeTool : McpToolBase<StoreKnowledgeParams, StoreKnowled
                 try
                 {
                     // Normalize and validate inputs
-                    var normalizedType = ValidationAttributes.KnowledgeTypeAttribute.Normalize(parameters.Type);
+                    var normalizedType = ValidationAttributes.KnowledgeTypeAttribute.Normalize(parameters.Type!);
                     var normalizedTags = ValidationAttributes.TagsAttribute.Normalize(parameters.Tags);
                     
                     // Record normalization metrics
@@ -68,8 +68,8 @@ public class StoreKnowledgeTool : McpToolBase<StoreKnowledgeParams, StoreKnowled
             
             var request = new StoreKnowledgeRequest
             {
-                Type = normalizedType!,
-                Content = parameters.Content,
+                Type = normalizedType ?? "WorkNote",
+                Content = parameters.Content ?? string.Empty,
                 CodeSnippets = parameters.CodeSnippets?.ToArray(),
                 Status = parameters.Status,
                 Priority = parameters.Priority,
@@ -82,9 +82,11 @@ public class StoreKnowledgeTool : McpToolBase<StoreKnowledgeParams, StoreKnowled
             
             if (!response.Success)
             {
-                throw new ToolExecutionException(
-                    Name,
-                    response.Error ?? "Failed to store knowledge");
+                return new StoreKnowledgeResult
+                {
+                    Success = false,
+                    Error = ErrorHelpers.CreateStoreError(response.Error ?? "Failed to store knowledge")
+                };
             }
             
             // Invalidate search caches for this workspace since new knowledge was added
@@ -103,22 +105,22 @@ public class StoreKnowledgeTool : McpToolBase<StoreKnowledgeParams, StoreKnowled
                         StoredType = request.Type
                     };
                 }
-                catch (ToolExecutionException)
-                {
-                    throw;
-                }
                 catch (ArgumentException ex)
                 {
-                    throw new ParameterValidationException(
-                        ValidationResult.Failure("parameters", ex.Message));
+                    return new StoreKnowledgeResult
+                    {
+                        Success = false,
+                        Error = ErrorHelpers.CreateStoreError($"Invalid parameters: {ex.Message}")
+                    };
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Unexpected error storing knowledge");
-                    throw new ToolExecutionException(
-                        Name,
-                        $"Failed to store knowledge: {ex.Message}",
-                        ex);
+                    return new StoreKnowledgeResult
+                    {
+                        Success = false,
+                        Error = ErrorHelpers.CreateStoreError($"Failed to store knowledge: {ex.Message}")
+                    };
                 }
             },
             customData: customData);

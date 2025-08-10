@@ -17,7 +17,7 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         _logger = logger;
     }
     
-    public override async Task<object> BuildResponseAsync(
+    public override Task<object> BuildResponseAsync(
         List<Knowledge> data,
         ResponseContext context)
     {
@@ -31,7 +31,7 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         // If data fits within budget, return full results
         if (fullDataTokens <= tokenBudget)
         {
-            return new AIOptimizedResponse
+            return Task.FromResult<object>(new AIOptimizedResponse
             {
                 Data = new AIResponseData
                 {
@@ -51,7 +51,7 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
                 Insights = GenerateInsights(data, context.ResponseMode),
                 Actions = GenerateActions(data, (int)(tokenBudget * 0.1)),
                 Meta = CreateMetadata(startTime, false)
-            };
+            });
         }
         
         // Need to reduce - allocate token budget
@@ -97,9 +97,9 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         };
         
         // Update actual token estimate
-        response.Meta.TokenInfo.Estimated = TokenEstimator.EstimateObject(response);
+        response.Meta.TokenInfo!.Estimated = TokenEstimator.EstimateObject(response);
         
-        return response;
+        return Task.FromResult<object>(response);
     }
     
     private List<Knowledge> ReduceKnowledgeItems(List<Knowledge> items, int tokenBudget)

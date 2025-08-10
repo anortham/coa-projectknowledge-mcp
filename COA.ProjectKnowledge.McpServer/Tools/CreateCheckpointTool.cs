@@ -19,12 +19,16 @@ namespace COA.ProjectKnowledge.McpServer.Tools;
 public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCheckpointResult>
 {
     private readonly CheckpointService _checkpointService;
-    
+    private readonly ExecutionContextService _contextService;
     private readonly ILogger<CreateCheckpointTool> _logger;
     
-    public CreateCheckpointTool(CheckpointService checkpointService, ILogger<CreateCheckpointTool> logger)
+    public CreateCheckpointTool(
+        CheckpointService checkpointService,
+        ExecutionContextService contextService,
+        ILogger<CreateCheckpointTool> logger)
     {
         _checkpointService = checkpointService;
+        _contextService = contextService;
         _logger = logger;
     }
     
@@ -34,14 +38,37 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
 
     protected override async Task<CreateCheckpointResult> ExecuteInternalAsync(CreateCheckpointParams parameters, CancellationToken cancellationToken)
     {
+        // Create execution context for tracking
+        var customData = new Dictionary<string, object?>
+        {
+            ["SessionId"] = parameters.SessionId,
+            ["ContentLength"] = parameters.Content?.Length ?? 0,
+            ["ActiveFileCount"] = parameters.ActiveFiles?.Length ?? 0
+        };
+        
+        return await _contextService.RunWithContextAsync(
+            Name,
+            async (context) => await ExecuteWithContextAsync(parameters, context, cancellationToken),
+            customData: customData);
+    }
+    
+    private async Task<CreateCheckpointResult> ExecuteWithContextAsync(
+        CreateCheckpointParams parameters,
+        ToolExecutionContext context,
+        CancellationToken cancellationToken)
+    {
         try
         {
             var sessionId = parameters.SessionId ?? $"session-{DateTime.Now:yyyy-MM-dd-HHmmss}";
+            context.CustomData["GeneratedSessionId"] = sessionId;
             
             var checkpoint = await _checkpointService.CreateCheckpointAsync(
                 parameters.Content,
                 sessionId,
                 parameters.ActiveFiles?.ToList());
+            
+            context.CustomData["CheckpointId"] = checkpoint.Id;
+            context.CustomData["SequenceNumber"] = checkpoint.SequenceNumber;
             
             return new CreateCheckpointResult
             {
@@ -54,16 +81,22 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
         }
         catch (ArgumentException ex)
         {
-            throw new ParameterValidationException(
-                ValidationResult.Failure("parameters", ex.Message));
+            context.CustomData["Error"] = "ValidationError";
+            return new CreateCheckpointResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateCheckpointError($"Invalid parameters: {ex.Message}", "create")
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create checkpoint");
-            throw new ToolExecutionException(
-                Name,
-                $"Failed to create checkpoint: {ex.Message}",
-                ex);
+            context.CustomData["Error"] = true;
+            return new CreateCheckpointResult
+            {
+                Success = false,
+                Error = ErrorHelpers.CreateCheckpointError($"Failed to create checkpoint: {ex.Message}", "create")
+            };
         }
     }
 }

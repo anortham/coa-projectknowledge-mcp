@@ -7,6 +7,7 @@ using COA.Mcp.Framework.TokenOptimization;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Resources;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 
@@ -113,37 +114,11 @@ public class ExportKnowledgeTool : McpToolBase<ExportKnowledgeParams, ExportKnow
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Export failed");
             return new ExportKnowledgeResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "EXPORT_FAILED",
-                    Message = $"Export failed: {ex.Message}",
-                    Recovery = new RecoveryInfo
-                    {
-                        Steps = new[]
-                        {
-                            "Check if the output path is valid and writable",
-                            "Ensure you have sufficient disk space",
-                            "Verify the workspace name if specified",
-                            "Try exporting without filters first"
-                        },
-                        SuggestedActions = new List<SuggestedAction>
-                        {
-                            new SuggestedAction
-                            {
-                                Tool = ToolNames.FindKnowledge,
-                                Description = "Search for specific items to export",
-                                Parameters = new Dictionary<string, object> 
-                                { 
-                                    { "query", parameters.FilterByType ?? "" }, 
-                                    { "workspace", parameters.Workspace ?? "" } 
-                                }
-                            }
-                        }
-                    }
-                }
+                Error = ErrorHelpers.CreateStoreError($"Export failed: {ex.Message}")
             };
         }
     }

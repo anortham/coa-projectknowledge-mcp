@@ -8,6 +8,7 @@ using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Resources;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 
@@ -62,7 +63,7 @@ public class SearchCrossProjectTool : McpToolBase<CrossProjectSearchParams, Cros
                 {
                     Success = false,
                     Items = new List<CrossProjectKnowledgeItem>(),
-                    Error = new ErrorInfo { Code = "CROSS_PROJECT_SEARCH_FAILED", Message = response.Error ?? "Cross-project search failed" }
+                    Error = ErrorHelpers.CreateSearchError(response.Error ?? "Cross-project search failed")
                 };
             }
 
@@ -144,40 +145,12 @@ public class SearchCrossProjectTool : McpToolBase<CrossProjectSearchParams, Cros
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Cross-project search failed");
             return new CrossProjectSearchResult
             {
                 Success = false,
                 Items = new List<CrossProjectKnowledgeItem>(),
-                Error = new ErrorInfo
-                {
-                    Code = "CROSS_PROJECT_SEARCH_FAILED",
-                    Message = $"Cross-project search failed: {ex.Message}",
-                    Recovery = new RecoveryInfo
-                    {
-                        Steps = new[]
-                        {
-                            "Check if the search query is valid",
-                            "Verify workspace names are correct",
-                            "Try a simpler search query first",
-                            "Reduce the number of workspaces being searched"
-                        },
-                        SuggestedActions = new List<SuggestedAction>
-                        {
-                            new SuggestedAction
-                            {
-                                Tool = ToolNames.DiscoverProjects,
-                                Description = "List available workspaces",
-                                Parameters = new Dictionary<string, object>()
-                            },
-                            new SuggestedAction
-                            {
-                                Tool = ToolNames.FindKnowledge,
-                                Description = "Search within current workspace",
-                                Parameters = new Dictionary<string, object> { { "query", parameters.Query } }
-                            }
-                        }
-                    }
-                }
+                Error = ErrorHelpers.CreateSearchError($"Cross-project search failed: {ex.Message}")
             };
         }
     }

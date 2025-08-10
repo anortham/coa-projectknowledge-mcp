@@ -35,21 +35,21 @@ public class KnowledgeCapturePrompt : PromptBase
         }
     };
 
-    public override async Task<GetPromptResult> RenderAsync(
+    public override Task<GetPromptResult> RenderAsync(
         Dictionary<string, object>? arguments = null,
         CancellationToken cancellationToken = default)
     {
         var validation = ValidateArguments(arguments);
         if (!validation.IsValid)
         {
-            return new GetPromptResult
+            return Task.FromResult(new GetPromptResult
             {
                 Description = "Invalid arguments",
                 Messages = new List<PromptMessage>
                 {
                     CreateSystemMessage($"Error: {string.Join(", ", validation.Errors)}")
                 }
-            };
+            });
         }
 
         var type = GetRequiredArgument<string>(arguments, "type");
@@ -138,11 +138,11 @@ What specific observation, task, or information would you like to record?",
 
         messages.Add(CreateAssistantMessage(assistantTemplate));
 
-        return new GetPromptResult
+        return Task.FromResult(new GetPromptResult
         {
             Description = $"Capture {type} for {workspace}",
             Messages = messages
-        };
+        });
     }
 
     private string GenerateProjectInsightPrompt(string context, string workspace)

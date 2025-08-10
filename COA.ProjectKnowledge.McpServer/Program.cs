@@ -107,9 +107,9 @@ public class Program
         services.AddHostedService<KnowledgeMaintenanceService>();
         
         // Register Resource Provider and Registry
+        // IResourceCache is provided by the framework and handles lifetime properly
         services.AddScoped<KnowledgeResourceProvider>();
-        services.AddSingleton<IResourceProvider>(provider => provider.GetRequiredService<KnowledgeResourceProvider>());
-        services.AddSingleton<IResourceRegistry, ResourceRegistry>();
+        services.AddScoped<IResourceProvider>(provider => provider.GetRequiredService<KnowledgeResourceProvider>());
         
         // Register Token Optimization services
         services.AddSingleton<ITokenEstimator, DefaultTokenEstimator>();
@@ -254,15 +254,8 @@ public class Program
             await EnsureDatabaseSchemaAsync(dbContext);
         }
 
-        // Register resource provider with the registry
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var resourceRegistry = scope.ServiceProvider.GetRequiredService<IResourceRegistry>();
-            var resourceProvider = scope.ServiceProvider.GetRequiredService<KnowledgeResourceProvider>();
-            resourceRegistry.RegisterProvider(resourceProvider);
-        }
-
-        // Note: Old database initialization removed
+        // Note: Resource provider registration is now handled by the framework
+        // The framework's ResourceRegistry will discover IResourceProvider instances automatically
 
         // Run the server
         try

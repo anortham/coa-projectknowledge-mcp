@@ -44,7 +44,8 @@
       "mcp__projectknowledge__search_across_projects",
       "mcp__projectknowledge__link_knowledge",
       "mcp__projectknowledge__find_connections",
-      "mcp__projectknowledge__export_knowledge"
+      "mcp__projectknowledge__export_knowledge",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

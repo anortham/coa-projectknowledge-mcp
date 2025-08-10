@@ -3,12 +3,17 @@ using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
 using COA.Mcp.Framework.Exceptions;
 using COA.Mcp.Framework.Interfaces;
+using COA.Mcp.Framework.TokenOptimization;
+using COA.Mcp.Framework.TokenOptimization.Caching;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
 using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 // Use framework attributes with aliases to avoid conflicts
 using FrameworkAttributes = COA.Mcp.Framework.Attributes;
@@ -19,10 +24,20 @@ namespace COA.ProjectKnowledge.McpServer.Tools;
 public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointResult>
 {
     private readonly CheckpointService _checkpointService;
+    private readonly IResponseCacheService _cacheService;
+    private readonly ExecutionContextService _contextService;
+    private readonly ILogger<GetCheckpointTool> _logger;
     
-    public GetCheckpointTool(CheckpointService checkpointService)
+    public GetCheckpointTool(
+        CheckpointService checkpointService,
+        IResponseCacheService cacheService,
+        ExecutionContextService contextService,
+        ILogger<GetCheckpointTool> logger)
     {
         _checkpointService = checkpointService;
+        _cacheService = cacheService;
+        _contextService = contextService;
+        _logger = logger;
     }
     
     public override string Name => ToolNames.LoadCheckpoint;
@@ -31,6 +46,39 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
 
     protected override async Task<GetCheckpointResult> ExecuteInternalAsync(GetCheckpointParams parameters, CancellationToken cancellationToken)
     {
+        // Create execution context for tracking
+        var customData = new Dictionary<string, object?>
+        {
+            ["CheckpointId"] = parameters.CheckpointId,
+            ["SessionId"] = parameters.SessionId
+        };
+        
+        return await _contextService.RunWithContextAsync(
+            Name,
+            async (context) => await ExecuteWithContextAsync(parameters, context, cancellationToken),
+            customData: customData);
+    }
+    
+    private async Task<GetCheckpointResult> ExecuteWithContextAsync(
+        GetCheckpointParams parameters,
+        ToolExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        // Generate cache key
+        var cacheKey = GenerateCacheKey(parameters);
+        
+        // Check cache first
+        if (_cacheService != null)
+        {
+            var cachedResult = await _cacheService.GetAsync<GetCheckpointResult>(cacheKey);
+            if (cachedResult != null)
+            {
+                _logger.LogDebug("Returning cached checkpoint for key: {CacheKey}", cacheKey);
+                context.CustomData["CacheHit"] = true;
+                return cachedResult;
+            }
+        }
+        
         try
         {
             Checkpoint? checkpoint;
@@ -53,7 +101,7 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
                 };
             }
             
-            return new GetCheckpointResult
+            var result = new GetCheckpointResult
             {
                 Success = true,
                 Checkpoint = new CheckpointInfo
@@ -66,15 +114,49 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
                     CreatedAt = checkpoint.CreatedAt
                 }
             };
+            
+            // Cache the result for 10 minutes (checkpoints are immutable)
+            if (_cacheService != null)
+            {
+                try
+                {
+                    await _cacheService.SetAsync(cacheKey, result, new CacheEntryOptions());
+                    context.CustomData["CacheSet"] = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to cache checkpoint for key: {CacheKey}", cacheKey);
+                }
+            }
+            
+            return result;
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to get checkpoint");
+            context.CustomData["Error"] = true;
+            
             return new GetCheckpointResult
             {
                 Success = false,
                 Error = ErrorHelpers.CreateCheckpointError($"Failed to get checkpoint: {ex.Message}", "get")
             };
         }
+    }
+    
+    private string GenerateCacheKey(GetCheckpointParams parameters)
+    {
+        var keyData = new
+        {
+            Tool = Name,
+            CheckpointId = parameters.CheckpointId,
+            SessionId = parameters.SessionId
+        };
+        
+        var json = JsonSerializer.Serialize(keyData);
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+        return $"checkpoint_{Convert.ToBase64String(hash).Replace("/", "_").Replace("+", "-").Substring(0, 16)}";
     }
 }
 
