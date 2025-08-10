@@ -38,4 +38,7 @@ public static class ToolDescriptions
     
     // Export & Sharing
     public const string ExportKnowledge = "Export knowledge to external formats like Obsidian markdown files. Use when you want to share knowledge outside the system, create backups, or integrate with other knowledge management tools.";
+    
+    // Federation
+    public const string SearchFederation = "Search for information across federated ProjectKnowledge hubs using MCP protocol. Use when you need to find knowledge from remote teams, partner organizations, or distributed knowledge bases.";
 }

@@ -1,21 +1,34 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
+using COA.ProjectKnowledge.McpServer.Resources;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
 using System.Text;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
 public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
 {
     private readonly KnowledgeService _knowledgeService;
+    private readonly KnowledgeResourceProvider _resourceProvider;
     
-    public GetTimelineTool(KnowledgeService knowledgeService)
+    public GetTimelineTool(
+        KnowledgeService knowledgeService,
+        KnowledgeResourceProvider resourceProvider)
     {
         _knowledgeService = knowledgeService;
+        _resourceProvider = resourceProvider;
     }
     
     public override string Name => ToolNames.ShowActivity;
@@ -70,7 +83,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
                 {
                     Success = false,
                     Timeline = new List<TimelineEntry>(),
-                    Error = new ErrorInfo { Code = "TIMELINE_FAILED", Message = response.Error ?? "Failed to get timeline" }
+                    Error = ErrorHelpers.CreateTimelineError(response.Error ?? "Failed to get timeline")
                 };
             }
             
@@ -119,11 +132,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
             {
                 Success = false,
                 Timeline = new List<TimelineEntry>(),
-                Error = new ErrorInfo
-                {
-                    Code = "TIMELINE_FAILED",
-                    Message = $"Failed to get timeline: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateTimelineError($"Failed to get timeline: {ex.Message}")
             };
         }
     }
@@ -281,28 +290,28 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
 
 public class GetTimelineParams
 {
-    [Description("Get items from the last N days (default: 7)")]
+    [ComponentModel.Description("Get items from the last N days (default: 7)")]
     public int? DaysAgo { get; set; }
     
-    [Description("Get items from the last N hours (alternative to days)")]
+    [ComponentModel.Description("Get items from the last N hours (alternative to days)")]
     public double? HoursAgo { get; set; }
     
-    [Description("Start date for timeline (optional, overrides days/hours)")]
+    [ComponentModel.Description("Start date for timeline (optional, overrides days/hours)")]
     public DateTime? StartDate { get; set; }
     
-    [Description("End date for timeline (optional, overrides days/hours)")]
+    [ComponentModel.Description("End date for timeline (optional, overrides days/hours)")]
     public DateTime? EndDate { get; set; }
     
-    [Description("Filter by knowledge type (optional)")]
+    [ComponentModel.Description("Filter by knowledge type (optional)")]
     public string? Type { get; set; }
     
-    [Description("Workspace to query (optional, defaults to current)")]
+    [ComponentModel.Description("Workspace to query (optional, defaults to current)")]
     public string? Workspace { get; set; }
     
-    [Description("Maximum items per time period group (default: 10)")]
+    [ComponentModel.Description("Maximum items per time period group (default: 10)")]
     public int? MaxPerGroup { get; set; }
     
-    [Description("Maximum total results to retrieve (default: 500)")]
+    [ComponentModel.Description("Maximum total results to retrieve (default: 500)")]
     public int? MaxResults { get; set; }
 }
 

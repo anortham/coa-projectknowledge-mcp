@@ -1,10 +1,18 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -41,11 +49,7 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
                 return new GetCheckpointResult
                 {
                     Success = false,
-                    Error = new ErrorInfo
-                    {
-                        Code = "CHECKPOINT_NOT_FOUND",
-                        Message = "No checkpoint found"
-                    }
+                    Error = ErrorHelpers.CreateCheckpointError($"Checkpoint {parameters.CheckpointId ?? "latest"} not found", "get")
                 };
             }
             
@@ -68,11 +72,7 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
             return new GetCheckpointResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "CHECKPOINT_GET_FAILED",
-                    Message = $"Failed to get checkpoint: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateCheckpointError($"Failed to get checkpoint: {ex.Message}", "get")
             };
         }
     }
@@ -80,10 +80,15 @@ public class GetCheckpointTool : McpToolBase<GetCheckpointParams, GetCheckpointR
 
 public class GetCheckpointParams
 {
-    [Description("Specific checkpoint ID to retrieve")]
+    [FrameworkAttributes.StringLength(50, ErrorMessage = "Checkpoint ID cannot exceed 50 characters")]
+
+    [ComponentModel.Description("Specific checkpoint ID to retrieve")]
     public string? CheckpointId { get; set; }
     
-    [Description("Session ID to get the latest checkpoint from")]
+    [FrameworkAttributes.StringLength(100, ErrorMessage = "Session ID cannot exceed 100 characters")]
+
+    
+    [ComponentModel.Description("Session ID to get the latest checkpoint from")]
     public string? SessionId { get; set; }
 }
 

@@ -1,10 +1,18 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -12,9 +20,12 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
 {
     private readonly CheckpointService _checkpointService;
     
-    public CreateCheckpointTool(CheckpointService checkpointService)
+    private readonly ILogger<CreateCheckpointTool> _logger;
+    
+    public CreateCheckpointTool(CheckpointService checkpointService, ILogger<CreateCheckpointTool> logger)
     {
         _checkpointService = checkpointService;
+        _logger = logger;
     }
     
     public override string Name => ToolNames.SaveCheckpoint;
@@ -41,30 +52,34 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
                 Message = $"Checkpoint #{checkpoint.SequenceNumber} created for session {checkpoint.SessionId}"
             };
         }
+        catch (ArgumentException ex)
+        {
+            throw new ParameterValidationException(
+                ValidationResult.Failure("parameters", ex.Message));
+        }
         catch (Exception ex)
         {
-            return new CreateCheckpointResult
-            {
-                Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "CHECKPOINT_CREATE_FAILED",
-                    Message = $"Failed to create checkpoint: {ex.Message}"
-                }
-            };
+            _logger.LogError(ex, "Failed to create checkpoint");
+            throw new ToolExecutionException(
+                Name,
+                $"Failed to create checkpoint: {ex.Message}",
+                ex);
         }
     }
 }
 
 public class CreateCheckpointParams
 {
-    [Description("The checkpoint content describing the current state")]
+    [FrameworkAttributes.Required(ErrorMessage = "Content is required")]
+    [FrameworkAttributes.StringLength(50000, ErrorMessage = "Content cannot exceed 50,000 characters")]
+    [ComponentModel.Description("The checkpoint content describing the current state")]
     public string Content { get; set; } = string.Empty;
     
-    [Description("Session ID (optional, will be generated if not provided)")]
+    [FrameworkAttributes.StringLength(100, ErrorMessage = "Session ID cannot exceed 100 characters")]
+    [ComponentModel.Description("Session ID (optional, will be generated if not provided)")]
     public string? SessionId { get; set; }
     
-    [Description("List of files currently being worked on")]
+    [ComponentModel.Description("List of files currently being worked on")]
     public string[]? ActiveFiles { get; set; }
 }
 

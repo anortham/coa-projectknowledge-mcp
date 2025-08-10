@@ -1,8 +1,16 @@
 using COA.Mcp.Framework.Server;
 using COA.Mcp.Framework.Server.Services;
+using COA.Mcp.Framework.Interfaces;
+using COA.Mcp.Framework.Resources;
+using COA.Mcp.Framework.TokenOptimization;
+using COA.Mcp.Framework.TokenOptimization.Actions;
+using COA.Mcp.Framework.TokenOptimization.Caching;
+using COA.Mcp.Framework.TokenOptimization.Intelligence;
+using COA.Mcp.Framework.TokenOptimization.Storage;
 using COA.ProjectKnowledge.McpServer.Services;
 // using COA.ProjectKnowledge.McpServer.Storage; // Removed - migrated to EF Core
 using COA.ProjectKnowledge.McpServer.Data;
+using COA.ProjectKnowledge.McpServer.Resources;
 using Microsoft.EntityFrameworkCore;
 using COA.ProjectKnowledge.McpServer.Tools;
 using Microsoft.AspNetCore.Builder;
@@ -74,14 +82,58 @@ public class Program
         services.AddSingleton<IWorkspaceResolver, WorkspaceResolver>();
         services.AddSingleton<WorkspaceResolver>();
 
-        // Relationship, export and federation services
+        // Relationship and export services
         services.AddScoped<RelationshipService>();
         services.AddScoped<MarkdownExportService>(); // Changed from Singleton - depends on scoped KnowledgeService
-        services.AddHttpClient("Federation", client =>
+        services.AddScoped<FederationService>(); // Handles incoming knowledge from other MCP clients
+        
+        // WebSocket broadcast service (registered as HostedService and Singleton)
+        services.AddSingleton<WebSocketBroadcastService>();
+        services.AddHostedService(provider => provider.GetRequiredService<WebSocketBroadcastService>());
+        
+        // Real-time notification service for WebSocket broadcasts
+        services.AddSingleton<RealTimeNotificationService>(provider =>
         {
-            client.Timeout = TimeSpan.FromSeconds(30);
+            var logger = provider.GetRequiredService<ILogger<RealTimeNotificationService>>();
+            var config = provider.GetRequiredService<IConfiguration>();
+            var webSocketService = provider.GetService<WebSocketBroadcastService>();
+            return new RealTimeNotificationService(logger, config, webSocketService);
         });
-        services.AddScoped<FederationService>(); // Changed from Singleton - depends on scoped KnowledgeService
+        
+        // Execution context tracking service
+        services.AddScoped<ExecutionContextService>();
+        
+        // Background service for database maintenance
+        services.AddHostedService<KnowledgeMaintenanceService>();
+        
+        // Register Resource Provider and Registry
+        services.AddScoped<KnowledgeResourceProvider>();
+        services.AddSingleton<IResourceProvider>(provider => provider.GetRequiredService<KnowledgeResourceProvider>());
+        services.AddSingleton<IResourceRegistry, ResourceRegistry>();
+        
+        // Register Token Optimization services
+        services.AddSingleton<ITokenEstimator, DefaultTokenEstimator>();
+        services.AddSingleton<IInsightGenerator, InsightGenerator>();
+        services.AddSingleton<IActionGenerator, ActionGenerator>();
+        services.AddSingleton<IResponseCacheService, ResponseCacheService>();
+        services.AddSingleton<IResourceStorageService, ResourceStorageService>();
+        services.AddSingleton<ICacheKeyGenerator, CacheKeyGenerator>();
+        
+        // Register all MCP tools - required for DI to work with DiscoverTools
+        services.AddScoped<Tools.StoreKnowledgeTool>();
+        services.AddScoped<Tools.SearchKnowledgeTool>();
+        services.AddScoped<Tools.CreateCheckpointTool>();
+        services.AddScoped<Tools.GetCheckpointTool>();
+        services.AddScoped<Tools.ListCheckpointsTool>();
+        services.AddScoped<Tools.CreateChecklistTool>();
+        services.AddScoped<Tools.GetChecklistTool>();
+        services.AddScoped<Tools.UpdateChecklistItemTool>();
+        services.AddScoped<Tools.GetTimelineTool>();
+        services.AddScoped<Tools.GetWorkspacesTool>();
+        services.AddScoped<Tools.SearchCrossProjectTool>();
+        services.AddScoped<Tools.CreateRelationshipTool>();
+        services.AddScoped<Tools.GetRelationshipsTool>();
+        services.AddScoped<Tools.ExportKnowledgeTool>();
     }
 
     /// <summary>
@@ -113,6 +165,7 @@ public class Program
     {
         // Determine mode from args early
         bool isHttpMode = args.Contains("--mode") && args.Contains("http");
+        bool isWebSocketMode = args.Contains("--mode") && args.Contains("websocket");
 
         // Load configuration early for logging setup
         var configuration = new ConfigurationBuilder()
@@ -138,24 +191,11 @@ public class Program
         // Configure shared services
         ConfigureSharedServices(builder.Services, configuration);
 
-        // Register tools in DI first (required for constructor dependencies)
-        builder.Services.AddScoped<StoreKnowledgeTool>();
-        builder.Services.AddScoped<SearchKnowledgeTool>();
-        builder.Services.AddScoped<CreateCheckpointTool>();
-        builder.Services.AddScoped<GetCheckpointTool>();
-        builder.Services.AddScoped<ListCheckpointsTool>();
-        builder.Services.AddScoped<CreateChecklistTool>();
-        builder.Services.AddScoped<UpdateChecklistItemTool>();
-        builder.Services.AddScoped<GetChecklistTool>();
-        builder.Services.AddScoped<CreateRelationshipTool>();
-        builder.Services.AddScoped<GetRelationshipsTool>();
-        builder.Services.AddScoped<ExportKnowledgeTool>();
-        builder.Services.AddScoped<GetTimelineTool>();
-        builder.Services.AddScoped<SearchCrossProjectTool>();
-        builder.Services.AddScoped<GetWorkspacesTool>();
-
-        // Discover and register all tools from assembly
+        // Auto-discover and register all tools from assembly
         builder.DiscoverTools(typeof(Program).Assembly);
+        
+        // Auto-discover and register all prompts from assembly
+        builder.DiscoverPrompts(typeof(Program).Assembly);
 
         // Mode was already determined at the top
 
@@ -165,15 +205,28 @@ public class Program
             await RunHttpServerAsync(configuration);
             return; // Exit after HTTP server stops
         }
+        else if (isWebSocketMode)
+        {
+            // WebSocket mode - enable real-time bidirectional communication
+            var wsPort = configuration.GetValue<int>("Mcp:Transport:WebSocket:Port", 8080);
+            var wsHost = configuration.GetValue<string>("Mcp:Transport:WebSocket:Host", "localhost");
+            
+            builder.UseWebSocketTransport(options =>
+            {
+                options.Host = wsHost;
+                options.Port = wsPort;
+                options.UseHttps = false;
+            });
+        }
         else
         {
             // STDIO mode - run as MCP client with auto-started HTTP service
             builder.UseStdioTransport();
 
             // Auto-start HTTP service for federation
-            if (configuration.GetValue<bool>("ProjectKnowledge:Federation:Enabled", true))
+            if (configuration.GetValue<bool>("Mcp:Transport:Http:Enabled", true))
             {
-                var port = configuration.GetValue<int>("ProjectKnowledge:Federation:Port", 5100);
+                var port = configuration.GetValue<int>("Mcp:Transport:Http:Port", 5100);
                 builder.UseAutoService(config =>
                 {
                     config.ServiceId = "projectknowledge-http";
@@ -199,6 +252,14 @@ public class Program
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
             await EnsureDatabaseSchemaAsync(dbContext);
+        }
+
+        // Register resource provider with the registry
+        using (var scope = serviceProvider.CreateScope())
+        {
+            var resourceRegistry = scope.ServiceProvider.GetRequiredService<IResourceRegistry>();
+            var resourceProvider = scope.ServiceProvider.GetRequiredService<KnowledgeResourceProvider>();
+            resourceRegistry.RegisterProvider(resourceProvider);
         }
 
         // Note: Old database initialization removed
@@ -231,7 +292,7 @@ public class Program
 
     private static async Task RunHttpServerAsync(IConfiguration configuration)
     {
-        var port = configuration.GetValue<int>("ProjectKnowledge:Federation:Port", 5100);
+        var port = configuration.GetValue<int>("Mcp:Transport:Http:Port", 5100);
         var builder = WebApplication.CreateBuilder();
 
         // Configure services

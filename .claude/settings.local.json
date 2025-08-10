@@ -36,7 +36,15 @@
       "mcp__projectknowledge__search_cross_project",
       "mcp__projectknowledge__save_checkpoint",
       "mcp__projectknowledge__load_checkpoint",
-      "mcp__projectknowledge__show_activity"
+      "mcp__projectknowledge__show_activity",
+      "mcp__projectknowledge__find_knowledge",
+      "mcp__projectknowledge__view_checklist",
+      "mcp__projectknowledge__update_task",
+      "mcp__projectknowledge__discover_projects",
+      "mcp__projectknowledge__search_across_projects",
+      "mcp__projectknowledge__link_knowledge",
+      "mcp__projectknowledge__find_connections",
+      "mcp__projectknowledge__export_knowledge"
     ],
     "deny": []
   }

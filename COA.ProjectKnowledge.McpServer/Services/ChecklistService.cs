@@ -2,6 +2,7 @@ using COA.ProjectKnowledge.McpServer.Data;
 using COA.ProjectKnowledge.McpServer.Data.Entities;
 using COA.ProjectKnowledge.McpServer.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
@@ -11,11 +12,16 @@ public class ChecklistService
 {
     private readonly KnowledgeDbContext _context;
     private readonly IWorkspaceResolver _workspaceResolver;
+    private readonly ILogger<ChecklistService> _logger;
 
-    public ChecklistService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver)
+    public ChecklistService(
+        KnowledgeDbContext context, 
+        IWorkspaceResolver workspaceResolver,
+        ILogger<ChecklistService> logger)
     {
         _context = context;
         _workspaceResolver = workspaceResolver;
+        _logger = logger;
     }
 
     public async Task<Checklist> CreateChecklistAsync(string content, List<string> items, string? parentChecklistId = null)
@@ -44,8 +50,8 @@ public class ChecklistService
             Content = checklist.Content,
             Metadata = JsonSerializer.Serialize(new
             {
-                checklist.Items,
-                checklist.ParentChecklistId
+                items = checklist.Items,
+                parentChecklistId = checklist.ParentChecklistId
             }),
             Tags = JsonSerializer.Serialize(new List<string> { "checklist" }),
             Priority = "normal",
@@ -109,23 +115,50 @@ public class ChecklistService
                 && k.Type == KnowledgeTypes.Checklist 
                 && k.Workspace == workspace);
 
-        if (entity == null) return false;
+        if (entity == null) 
+        {
+            _logger.LogWarning("Checklist not found: {ChecklistId}", checklistId);
+            return false;
+        }
 
         var checklist = ConvertToChecklist(entity);
-        var item = checklist.Items.FirstOrDefault(i => i.Id == itemId);
         
-        if (item == null) return false;
+        _logger.LogDebug("Checklist {ChecklistId} has {ItemCount} items", checklistId, checklist.Items.Count);
+        
+        // Get a mutable copy of the items list
+        var items = checklist.Items.ToList();
+        
+        foreach (var debugItem in items)
+        {
+            _logger.LogDebug("Item: {ItemId} = {Content}, IsCompleted = {IsCompleted}", 
+                debugItem.Id, debugItem.Content, debugItem.IsCompleted);
+        }
+        
+        var item = items.FirstOrDefault(i => i.Id == itemId);
+        
+        if (item == null) 
+        {
+            _logger.LogWarning("Item not found: {ItemId} in checklist {ChecklistId}", itemId, checklistId);
+            return false;
+        }
 
+        _logger.LogDebug("Updating item {ItemId} to IsCompleted = {IsCompleted}", itemId, isCompleted);
         item.IsCompleted = isCompleted;
         item.CompletedAt = isCompleted ? DateTime.UtcNow : null;
+        
+        // Update the checklist's Items property to trigger SetMetadata
+        checklist.Items = items;
 
-        // Update entity metadata
+        // Update entity metadata with lowercase keys to match the Checklist model
         entity.Metadata = JsonSerializer.Serialize(new
         {
-            checklist.Items,
-            checklist.ParentChecklistId
+            items = checklist.Items,
+            parentChecklistId = checklist.ParentChecklistId
         });
-        entity.Status = checklist.Items.All(i => i.IsCompleted) ? "completed" : "active";
+        
+        _logger.LogDebug("Saved metadata: {Metadata}", entity.Metadata);
+        
+        entity.Status = items.All(i => i.IsCompleted) ? "completed" : "active";
         entity.ModifiedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -159,19 +192,38 @@ public class ChecklistService
             ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(entity.Metadata) ?? new Dictionary<string, JsonElement>()
             : new Dictionary<string, JsonElement>();
 
-        return new Checklist
+        var checklist = new Checklist
         {
             Id = entity.Id,
             Content = entity.Content,
-            Items = metadata.TryGetValue("Items", out var items) 
-                ? JsonSerializer.Deserialize<List<ChecklistItem>>(items.GetRawText()) ?? new List<ChecklistItem>()
-                : new List<ChecklistItem>(),
-            ParentChecklistId = metadata.TryGetValue("ParentChecklistId", out var parentId) 
-                ? parentId.GetString() 
-                : null,
             CreatedAt = entity.CreatedAt,
-            Workspace = entity.Workspace ?? string.Empty
+            ModifiedAt = entity.ModifiedAt,
+            Workspace = entity.Workspace ?? string.Empty,
+            AccessCount = entity.AccessCount,
+            Metadata = metadata  // Set the metadata dictionary directly
         };
+
+        // Check for both uppercase "Items" (old format) and lowercase "items" (new format)
+        if (metadata.TryGetValue("Items", out var upperItems))
+        {
+            checklist.Items = JsonSerializer.Deserialize<List<ChecklistItem>>(upperItems.GetRawText()) ?? new List<ChecklistItem>();
+        }
+        else if (metadata.TryGetValue("items", out var lowerItems))
+        {
+            checklist.Items = JsonSerializer.Deserialize<List<ChecklistItem>>(lowerItems.GetRawText()) ?? new List<ChecklistItem>();
+        }
+
+        // Check for both uppercase "ParentChecklistId" (old format) and lowercase "parentChecklistId" (new format)
+        if (metadata.TryGetValue("ParentChecklistId", out var upperParentId))
+        {
+            checklist.ParentChecklistId = upperParentId.GetString();
+        }
+        else if (metadata.TryGetValue("parentChecklistId", out var lowerParentId))
+        {
+            checklist.ParentChecklistId = lowerParentId.GetString();
+        }
+
+        return checklist;
     }
 
     // Removed duplicate method - use ChronologicalId.Generate() instead

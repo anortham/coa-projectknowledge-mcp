@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -12,28 +11,22 @@
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="NUnit" Version="4.3.2" />
-    <PackageReference Include="NUnit.Analyzers" Version="4.4.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
-    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="COA.Mcp.Framework.Testing" Version="1.4.7" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
-    <PackageReference Include="COA.Mcp.Framework.Testing" Version="1.4.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.8" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="Bogus" Version="35.6.1" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Using Include="FluentAssertions" />
+    <Using Include="COA.Mcp.Framework.Testing.Base" />
+    <Using Include="COA.Mcp.Framework.Testing.Assertions" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\COA.ProjectKnowledge.McpServer\COA.ProjectKnowledge.McpServer.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="appsettings.test.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>

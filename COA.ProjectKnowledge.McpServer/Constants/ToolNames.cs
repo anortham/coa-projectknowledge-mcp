@@ -30,4 +30,7 @@ public static class ToolNames
     
     // Export & Sharing
     public const string ExportKnowledge = "export_knowledge";
+    
+    // Federation
+    public const string SearchFederation = "search_federation";
 }

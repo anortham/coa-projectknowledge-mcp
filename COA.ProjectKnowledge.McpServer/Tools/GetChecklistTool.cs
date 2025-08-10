@@ -1,10 +1,18 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -32,11 +40,7 @@ public class GetChecklistTool : McpToolBase<GetChecklistParams, GetChecklistResu
                 return new GetChecklistResult
                 {
                     Success = false,
-                    Error = new ErrorInfo
-                    {
-                        Code = "CHECKLIST_NOT_FOUND",
-                        Message = "Checklist not found"
-                    }
+                    Error = ErrorHelpers.CreateChecklistError("Checklist not found", "get")
                 };
             }
             
@@ -70,11 +74,7 @@ public class GetChecklistTool : McpToolBase<GetChecklistParams, GetChecklistResu
             return new GetChecklistResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "GET_FAILED",
-                    Message = $"Failed to get checklist: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateChecklistError($"Failed to get checklist: {ex.Message}", "get")
             };
         }
     }
@@ -82,7 +82,10 @@ public class GetChecklistTool : McpToolBase<GetChecklistParams, GetChecklistResu
 
 public class GetChecklistParams
 {
-    [Description("ID of the checklist to retrieve")]
+    [FrameworkAttributes.Required(ErrorMessage = "Checklist ID is required")]
+    [FrameworkAttributes.StringLength(50, ErrorMessage = "Checklist ID cannot exceed 50 characters")]
+
+    [ComponentModel.Description("ID of the checklist to retrieve")]
     public string ChecklistId { get; set; } = string.Empty;
 }
 

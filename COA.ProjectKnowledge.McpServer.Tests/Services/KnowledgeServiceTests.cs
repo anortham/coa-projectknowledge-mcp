@@ -298,7 +298,7 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(5);
-        result.TotalCount.Should().Be(10);
+        FluentAssertions.AssertionExtensions.Should(result.TotalCount).Be(10);
     }
 
     [Test]
@@ -332,6 +332,6 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
         var result = await _service.GetKnowledgeAsync(storeResult.KnowledgeId!);
 
         // Assert
-        result.Knowledge!.AccessCount.Should().Be(3);
+        FluentAssertions.AssertionExtensions.Should(result.Knowledge!.AccessCount).Be(3);
     }
 }

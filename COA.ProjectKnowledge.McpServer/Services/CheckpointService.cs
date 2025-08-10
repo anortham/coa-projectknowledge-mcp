@@ -11,11 +11,13 @@ public class CheckpointService
 {
     private readonly KnowledgeDbContext _context;
     private readonly IWorkspaceResolver _workspaceResolver;
+    private readonly RealTimeNotificationService _notificationService;
 
-    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver)
+    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver, RealTimeNotificationService notificationService)
     {
         _context = context;
         _workspaceResolver = workspaceResolver;
+        _notificationService = notificationService;
     }
 
     public async Task<Checkpoint> CreateCheckpointAsync(string content, string? sessionId = null, List<string>? activeFiles = null)
@@ -53,6 +55,20 @@ public class CheckpointService
 
         _context.Knowledge.Add(entity);
         await _context.SaveChangesAsync();
+
+        // Broadcast real-time notification for new checkpoint
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _notificationService.BroadcastCheckpointCreatedAsync(checkpoint.Id, checkpoint.SessionId, checkpoint.Workspace);
+            }
+            catch (Exception ex)
+            {
+                // Don't have logger in CheckpointService, so just swallow this error
+                // The checkpoint was saved successfully, notification failure shouldn't affect that
+            }
+        });
 
         return checkpoint;
     }

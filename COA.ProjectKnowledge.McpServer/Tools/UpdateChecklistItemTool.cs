@@ -1,10 +1,18 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -35,11 +43,7 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
                 return new UpdateChecklistItemResult
                 {
                     Success = false,
-                    Error = new ErrorInfo
-                    {
-                        Code = "ITEM_NOT_FOUND",
-                        Message = "Checklist or item not found"
-                    }
+                    Error = ErrorHelpers.CreateChecklistError("Checklist or item not found", "update")
                 };
             }
             
@@ -58,11 +62,7 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
             return new UpdateChecklistItemResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "UPDATE_FAILED",
-                    Message = $"Failed to update checklist item: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateChecklistError($"Failed to update checklist item: {ex.Message}", "update")
             };
         }
     }
@@ -70,13 +70,23 @@ public class UpdateChecklistItemTool : McpToolBase<UpdateChecklistItemParams, Up
 
 public class UpdateChecklistItemParams
 {
-    [Description("ID of the checklist")]
+    [FrameworkAttributes.Required(ErrorMessage = "Checklist ID is required")]
+    [FrameworkAttributes.StringLength(50, ErrorMessage = "Checklist ID cannot exceed 50 characters")]
+
+    [ComponentModel.Description("ID of the checklist")]
     public string ChecklistId { get; set; } = string.Empty;
     
-    [Description("ID of the item to update")]
+    [FrameworkAttributes.Required(ErrorMessage = "Item ID is required")]
+    [FrameworkAttributes.StringLength(50, ErrorMessage = "Item ID cannot exceed 50 characters")]
+
+    
+    [ComponentModel.Description("ID of the item to update")]
     public string ItemId { get; set; } = string.Empty;
     
-    [Description("Whether the item is completed")]
+    [FrameworkAttributes.Required(ErrorMessage = "IsCompleted is required")]
+
+    
+    [ComponentModel.Description("Whether the item is completed")]
     public bool IsCompleted { get; set; }
 }
 

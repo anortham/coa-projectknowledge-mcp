@@ -1,9 +1,17 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -57,11 +65,7 @@ public class GetRelationshipsTool : McpToolBase<GetRelationshipsParams, GetRelat
             return new GetRelationshipsResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "RELATIONSHIPS_GET_FAILED",
-                    Message = $"Failed to get relationships: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateRelationshipError($"Failed to get relationships: {ex.Message}", "get")
             };
         }
     }
@@ -69,10 +73,10 @@ public class GetRelationshipsTool : McpToolBase<GetRelationshipsParams, GetRelat
 
 public class GetRelationshipsParams
 {
-    [Description("ID of the knowledge item to get relationships for")]
+    [ComponentModel.Description("ID of the knowledge item to get relationships for")]
     public string KnowledgeId { get; set; } = string.Empty;
     
-    [Description("Direction of relationships to retrieve (from, to, or both)")]
+    [ComponentModel.Description("Direction of relationships to retrieve (from, to, or both)")]
     public string? Direction { get; set; }
 }
 

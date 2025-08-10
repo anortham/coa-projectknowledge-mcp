@@ -1,9 +1,17 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -50,11 +58,7 @@ public class CreateRelationshipTool : McpToolBase<CreateRelationshipParams, Crea
             return new CreateRelationshipResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "RELATIONSHIP_CREATE_FAILED",
-                    Message = $"Failed to create relationship: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateRelationshipError($"Failed to create relationship: {ex.Message}", "create")
             };
         }
     }
@@ -62,16 +66,16 @@ public class CreateRelationshipTool : McpToolBase<CreateRelationshipParams, Crea
 
 public class CreateRelationshipParams
 {
-    [Description("ID of the source knowledge item")]
+    [ComponentModel.Description("ID of the source knowledge item")]
     public string FromId { get; set; } = string.Empty;
     
-    [Description("ID of the target knowledge item")]
+    [ComponentModel.Description("ID of the target knowledge item")]
     public string ToId { get; set; } = string.Empty;
     
-    [Description("Type of relationship (relates_to, references, parent_of, blocks, etc.)")]
+    [ComponentModel.Description("Type of relationship (relates_to, references, parent_of, blocks, etc.)")]
     public string? RelationshipType { get; set; }
     
-    [Description("Optional description of the relationship")]
+    [ComponentModel.Description("Optional description of the relationship")]
     public string? Description { get; set; }
 }
 

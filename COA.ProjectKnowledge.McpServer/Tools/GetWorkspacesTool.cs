@@ -1,9 +1,17 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -44,11 +52,7 @@ public class GetWorkspacesTool : McpToolBase<GetWorkspacesParams, GetWorkspacesR
                 Success = false,
                 Workspaces = new List<string>(),
                 Count = 0,
-                Error = new ErrorInfo
-                {
-                    Code = "GET_WORKSPACES_FAILED",
-                    Message = $"Failed to get workspaces: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateWorkspaceError($"Failed to get workspaces: {ex.Message}")
             };
         }
     }

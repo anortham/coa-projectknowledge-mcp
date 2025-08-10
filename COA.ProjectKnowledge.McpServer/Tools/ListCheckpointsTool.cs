@@ -1,10 +1,18 @@
 using COA.Mcp.Framework.Base;
 using COA.Mcp.Framework.Models;
 using COA.Mcp.Framework;
+using COA.Mcp.Framework.Exceptions;
+using COA.Mcp.Framework.Interfaces;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Constants;
+using COA.ProjectKnowledge.McpServer.Helpers;
 using System.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+// Use framework attributes with aliases to avoid conflicts
+using FrameworkAttributes = COA.Mcp.Framework.Attributes;
+using ComponentModel = System.ComponentModel;
 
 namespace COA.ProjectKnowledge.McpServer.Tools;
 
@@ -49,11 +57,7 @@ public class ListCheckpointsTool : McpToolBase<ListCheckpointsParams, ListCheckp
             return new ListCheckpointsResult
             {
                 Success = false,
-                Error = new ErrorInfo
-                {
-                    Code = "CHECKPOINT_LIST_FAILED",
-                    Message = $"Failed to list checkpoints: {ex.Message}"
-                }
+                Error = ErrorHelpers.CreateCheckpointError($"Failed to list checkpoints: {ex.Message}", "list")
             };
         }
     }
@@ -61,10 +65,13 @@ public class ListCheckpointsTool : McpToolBase<ListCheckpointsParams, ListCheckp
 
 public class ListCheckpointsParams
 {
-    [Description("Session ID to list checkpoints for")]
+    [FrameworkAttributes.Required(ErrorMessage = "Session ID is required")]
+    [FrameworkAttributes.StringLength(100, ErrorMessage = "Session ID cannot exceed 100 characters")]
+
+    [ComponentModel.Description("Session ID to list checkpoints for")]
     public string SessionId { get; set; } = string.Empty;
     
-    [Description("Maximum number of checkpoints to return (default: 20)")]
+    [ComponentModel.Description("Maximum number of checkpoints to return (default: 20)")]
     public int? MaxResults { get; set; }
 }
 

@@ -73,17 +73,18 @@ This is a fully-functional knowledge management MCP server that reduces complexi
 - **Auto-Discovery**: Tools automatically registered via inheritance
 - **Dual Mode**: STDIO + HTTP server capabilities
 
-## Federation Architecture (Production Ready)
+## Federation Architecture (Hub-and-Spoke Model)
 
-### Hub-and-Spoke Model
-- **ONE** ProjectKnowledge instance runs as central hub (HTTP mode)
-- **OTHER** MCP servers connect TO the hub as federation clients
-- **Cross-Platform** database ensures no workspace conflicts
+### Single Machine, Multiple Clients
+- **ONE** ProjectKnowledge instance per developer machine (STDIO + HTTP)
+- **OTHER** MCP servers (SQL Analyzer, Web Tools, etc.) send knowledge TO the hub
+- **NO** cross-machine federation (single machine architecture)
+- **Cross-workspace** search within local database only
 
-### API Endpoints
-- `POST /api/knowledge/store` - Store knowledge from federation clients
-- `POST /api/knowledge/batch` - Batch operations
-- `POST /api/knowledge/contribute` - External contributions
+### API Endpoints (For MCP Client Integration)
+- `POST /api/knowledge/store` - Receive knowledge from MCP clients
+- `POST /api/knowledge/batch` - Batch operations from clients
+- `POST /api/knowledge/contribute` - External tool contributions
 - `GET /api/knowledge/health` - Health check with statistics
 
 ## Common Development Tasks
@@ -96,11 +97,15 @@ This is a fully-functional knowledge management MCP server that reduces complexi
 
 ### Testing Tools After Changes
 **IMPORTANT**: After making code changes:
-1. Exit Claude Code first (MCP server runs in memory)
+1. **YOU (the user) must exit Claude Code** - the MCP server runs in memory
 2. Build in release mode: `dotnet build -c Release`  
-3. Restart Claude Code to reload MCP server
-4. Changes will then be active for testing
-5. You can build Debug mode while Claude Code is running: `dotnet build -c Debug`
+3. **YOU (the user) must restart Claude Code** to reload the MCP server
+4. Only then will changes be active for testing
+
+**CRITICAL**: While Claude Code is running:
+- **NEVER** build in Release mode - it's locked by the running MCP server!
+- **ONLY** build in Debug mode: `dotnet build -c Debug`
+- Release builds will fail with file lock errors since the MCP server is using those files
 
 ### Debugging
 - **STDIO Mode**: Logs suppressed to prevent JSON-RPC corruption
@@ -191,3 +196,39 @@ projectknowledge --mode http --port 5100
 - **Logging**: Auto-configures to user profile logs folder
 
 The system is **production-ready** for immediate deployment and cross-project knowledge sharing!
+
+## Framework Best Practices Implemented
+
+ProjectKnowledge serves as a **reference implementation** for the COA MCP Framework, showcasing:
+
+### 1. ✅ Enhanced Error Handling
+- Centralized `ErrorHelpers` class for consistent error responses
+- Recovery steps and suggested actions in all tools
+- Context-specific error guidance
+
+### 2. ✅ Resource Providers for Large Data
+- `KnowledgeResourceProvider` automatically handles datasets >30-50 items
+- Returns resource URIs instead of inline data
+- 15-minute cache for frequently accessed resources
+
+### 3. ✅ Token Optimization
+- `COA.Mcp.Framework.TokenOptimization` package integrated
+- Smart truncation with resource fallback
+- `ToolExecutionMetadata` for token tracking
+
+### 4. ✅ Interactive Prompts
+- `KnowledgeCapturePrompt` - Guided knowledge entry
+- `CheckpointReviewPrompt` - Session restoration workflow
+- Context-aware with variable substitution
+
+### 5. ✅ Dual-Mode Architecture
+- STDIO for Claude Code integration
+- HTTP for federation hub
+- Auto-service management for background HTTP server
+
+### 6. ✅ Proper Service Registration
+- Scoped services for per-request lifetime
+- Singleton services for application lifetime
+- Auto-discovery of tools and prompts
+
+For detailed implementation patterns, see `Documentation/FrameworkBestPractices.md`

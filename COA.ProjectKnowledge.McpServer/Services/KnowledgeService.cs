@@ -12,15 +12,18 @@ public class KnowledgeService
     private readonly KnowledgeDbContext _context;
     private readonly IWorkspaceResolver _workspaceResolver;
     private readonly ILogger<KnowledgeService> _logger;
+    private readonly RealTimeNotificationService _notificationService;
     
     public KnowledgeService(
         KnowledgeDbContext context,
         IWorkspaceResolver workspaceResolver,
-        ILogger<KnowledgeService> logger)
+        ILogger<KnowledgeService> logger,
+        RealTimeNotificationService notificationService)
     {
         _context = context;
         _workspaceResolver = workspaceResolver;
         _logger = logger;
+        _notificationService = notificationService;
     }
     
     // Removed duplicate method - use ChronologicalId.Generate() instead
@@ -99,6 +102,28 @@ public class KnowledgeService
             await _context.SaveChangesAsync();
             
             _logger.LogInformation("Stored {Type} knowledge: {Id}", request.Type, id);
+            
+            // Broadcast real-time notification for new knowledge
+            var knowledgeItem = new KnowledgeSearchItem
+            {
+                Id = id,
+                Type = request.Type,
+                Content = request.Content,
+                Tags = request.Tags?.ToArray() ?? Array.Empty<string>()
+            };
+            
+            // Fire-and-forget notification (don't block the response)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _notificationService.BroadcastKnowledgeCreatedAsync(knowledgeItem, workspace);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to broadcast knowledge creation notification for {Id}", id);
+                }
+            });
             
             return new StoreKnowledgeResponse
             {
@@ -296,6 +321,57 @@ public class KnowledgeService
                 Items = new List<KnowledgeSearchItem>(),
                 Error = $"Failed to search knowledge across workspaces: {ex.Message}"
             };
+        }
+    }
+    
+    public async Task<List<KnowledgeEntity>> GetAllAsync(string? workspace, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var query = _context.Knowledge.AsQueryable();
+            
+            if (!string.IsNullOrEmpty(workspace))
+            {
+                query = query.Where(k => k.Workspace == workspace);
+            }
+            
+            return await query.OrderByDescending(k => k.Id).ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all knowledge items");
+            return new List<KnowledgeEntity>();
+        }
+    }
+    
+    public async Task<List<KnowledgeEntity>> SearchAsync(string query, string? workspace, int maxResults, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var dbQuery = _context.Knowledge.AsQueryable();
+            
+            if (!string.IsNullOrEmpty(workspace))
+            {
+                dbQuery = dbQuery.Where(k => k.Workspace == workspace);
+            }
+            
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                var searchTerm = query.ToLower();
+                dbQuery = dbQuery.Where(k => 
+                    k.Content.ToLower().Contains(searchTerm) ||
+                    (k.Tags != null && k.Tags.ToLower().Contains(searchTerm)));
+            }
+            
+            return await dbQuery
+                .OrderByDescending(k => k.Id)
+                .Take(maxResults)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching knowledge");
+            return new List<KnowledgeEntity>();
         }
     }
     
