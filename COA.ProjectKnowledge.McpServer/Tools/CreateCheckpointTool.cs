@@ -59,6 +59,28 @@ public class CreateCheckpointTool : McpToolBase<CreateCheckpointParams, CreateCh
     {
         try
         {
+            // Validate required parameters
+            if (string.IsNullOrWhiteSpace(parameters.Content))
+            {
+                return new CreateCheckpointResult
+                {
+                    Success = false,
+                    Error = new ErrorInfo
+                    {
+                        Code = "CHECKPOINT_VALIDATION_ERROR",
+                        Message = "Content is required and cannot be empty",
+                        Recovery = new RecoveryInfo
+                        {
+                            Steps = new[]
+                            {
+                                "Provide checkpoint content",
+                                "Ensure content is not empty or whitespace only"
+                            }
+                        }
+                    }
+                };
+            }
+            
             var sessionId = parameters.SessionId ?? $"session-{DateTime.Now:yyyy-MM-dd-HHmmss}";
             context.CustomData["GeneratedSessionId"] = sessionId;
             

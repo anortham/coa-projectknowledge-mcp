@@ -1,6 +1,8 @@
 using COA.Mcp.Framework.Testing.Base;
 using COA.ProjectKnowledge.McpServer.Data;
 using COA.ProjectKnowledge.McpServer.Data.Entities;
+using COA.ProjectKnowledge.McpServer.Services;
+using COA.ProjectKnowledge.McpServer.Tools;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,8 +46,40 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         // Also add as scoped for services that expect it
         services.AddScoped<KnowledgeDbContext>(_ => DbContext);
 
+        // Add common mocked services that all tests need
+        AddCommonTestServices(services);
+
         // Add other common services
         ConfigureTestServices(services);
+    }
+
+    private void AddCommonTestServices(IServiceCollection services)
+    {
+        // Mock common services that most tests need
+        var workspaceResolverMock = new Mock<IWorkspaceResolver>();
+        workspaceResolverMock.Setup(x => x.GetCurrentWorkspace()).Returns("TestWorkspace");
+        services.AddSingleton(workspaceResolverMock.Object);
+
+        // Mock RealTimeNotificationService 
+        var notificationLoggerMock = new Mock<ILogger<RealTimeNotificationService>>();
+        var notificationService = new RealTimeNotificationService(
+            notificationLoggerMock.Object,
+            Configuration,
+            null); // WebSocket service is optional
+        services.AddSingleton(notificationService);
+
+        // Add ExecutionContextService
+        var executionContextLoggerMock = new Mock<ILogger<ExecutionContextService>>();
+        services.AddSingleton(executionContextLoggerMock.Object);
+        services.AddSingleton<ExecutionContextService>();
+
+        // Add common tool logger mocks that most tests need
+        services.AddSingleton(new Mock<ILogger<UpdateChecklistItemTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<CreateChecklistTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<CreateCheckpointTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<StoreKnowledgeTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<SearchKnowledgeTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<ExportKnowledgeTool>>().Object);
     }
 
     protected virtual void ConfigureTestServices(IServiceCollection services)

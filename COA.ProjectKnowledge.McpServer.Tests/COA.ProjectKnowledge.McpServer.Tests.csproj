@@ -29,4 +29,10 @@
     <ProjectReference Include="..\COA.ProjectKnowledge.McpServer\COA.ProjectKnowledge.McpServer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="appsettings.test.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

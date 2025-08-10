@@ -32,6 +32,16 @@ public class GetRelationshipsTool : McpToolBase<GetRelationshipsParams, GetRelat
     {
         try
         {
+            // Validate required parameters
+            if (string.IsNullOrWhiteSpace(parameters.KnowledgeId))
+            {
+                return new GetRelationshipsResult
+                {
+                    Success = false,
+                    Error = ErrorHelpers.CreateRelationshipError("Knowledge ID is required and cannot be empty", "get")
+                };
+            }
+            
             var direction = parameters.Direction?.ToLower() switch
             {
                 "from" => RelationshipDirection.From,

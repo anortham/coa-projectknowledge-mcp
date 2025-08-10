@@ -32,7 +32,7 @@ public class RelationshipService
             FromId = fromId,
             ToId = toId,
             RelationshipType = relationshipType,
-            Description = metadata != null ? JsonSerializer.Serialize(metadata) : null,
+            Description = metadata?.ContainsKey("description") == true ? metadata["description"]?.ToString() : null,
             CreatedAt = DateTime.UtcNow
         };
         
@@ -79,7 +79,7 @@ public class RelationshipService
             ToId = e.ToId,
             RelationshipType = e.RelationshipType,
             Metadata = !string.IsNullOrEmpty(e.Description) 
-                ? JsonSerializer.Deserialize<Dictionary<string, object>>(e.Description) ?? new Dictionary<string, object>()
+                ? new Dictionary<string, object> { ["description"] = e.Description }
                 : new Dictionary<string, object>(),
             CreatedAt = e.CreatedAt
         }).ToList();
@@ -102,6 +102,11 @@ public class RelationshipService
             fromId, toId, relationshipType);
         
         return true;
+    }
+    
+    public async Task<bool> KnowledgeExistsAsync(string knowledgeId)
+    {
+        return await _context.Knowledge.AnyAsync(k => k.Id == knowledgeId);
     }
     
     public async Task<Dictionary<string, List<string>>> GetRelationshipGraphAsync(string knowledgeId, int maxDepth = 2)

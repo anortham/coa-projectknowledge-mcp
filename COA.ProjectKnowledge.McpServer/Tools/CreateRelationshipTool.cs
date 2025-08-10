@@ -32,6 +32,53 @@ public class CreateRelationshipTool : McpToolBase<CreateRelationshipParams, Crea
     {
         try
         {
+            // Validate that both knowledge items exist
+            var fromExists = await _relationshipService.KnowledgeExistsAsync(parameters.FromId);
+            if (!fromExists)
+            {
+                return new CreateRelationshipResult
+                {
+                    Success = false,
+                    Error = new ErrorInfo
+                    {
+                        Code = "KNOWLEDGE_NOT_FOUND",
+                        Message = $"Source knowledge item '{parameters.FromId}' not found",
+                        Recovery = new RecoveryInfo
+                        {
+                            Steps = new[]
+                            {
+                                "Verify the FromId knowledge item exists",
+                                "Create the source knowledge item first",
+                                "Check for typos in the knowledge ID"
+                            }
+                        }
+                    }
+                };
+            }
+
+            var toExists = await _relationshipService.KnowledgeExistsAsync(parameters.ToId);
+            if (!toExists)
+            {
+                return new CreateRelationshipResult
+                {
+                    Success = false,
+                    Error = new ErrorInfo
+                    {
+                        Code = "KNOWLEDGE_NOT_FOUND",
+                        Message = $"Target knowledge item '{parameters.ToId}' not found",
+                        Recovery = new RecoveryInfo
+                        {
+                            Steps = new[]
+                            {
+                                "Verify the ToId knowledge item exists",
+                                "Create the target knowledge item first",
+                                "Check for typos in the knowledge ID"
+                            }
+                        }
+                    }
+                };
+            }
+            
             var metadata = new Dictionary<string, object>();
             if (!string.IsNullOrEmpty(parameters.Description))
             {

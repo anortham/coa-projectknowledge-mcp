@@ -54,9 +54,10 @@ public class Checklist : Knowledge
         var total = Items.Count;
         var completed = Items.Count(i => i.IsCompleted);
         
-        if (completed == 0) return "Not Started";
-        if (completed == total) return "Completed";
-        return $"In Progress ({completed}/{total})";
+        if (total == 0) return "empty";
+        if (completed == 0) return "active";
+        if (completed == total) return "completed";
+        return "active";
     }
 }
 

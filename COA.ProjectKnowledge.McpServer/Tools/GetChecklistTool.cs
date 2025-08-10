@@ -40,7 +40,20 @@ public class GetChecklistTool : McpToolBase<GetChecklistParams, GetChecklistResu
                 return new GetChecklistResult
                 {
                     Success = false,
-                    Error = ErrorHelpers.CreateChecklistError("Checklist not found", "get")
+                    Error = new ErrorInfo
+                    {
+                        Code = "CHECKLIST_NOT_FOUND",
+                        Message = "Checklist not found",
+                        Recovery = new RecoveryInfo
+                        {
+                            Steps = new[]
+                            {
+                                "Verify checklist ID exists",
+                                "Use create_checklist to create a new checklist",
+                                "Check if checklist was deleted"
+                            }
+                        }
+                    }
                 };
             }
             

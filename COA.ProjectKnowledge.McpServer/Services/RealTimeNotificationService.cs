@@ -9,7 +9,7 @@ namespace COA.ProjectKnowledge.McpServer.Services;
 /// Handles real-time notifications for knowledge changes over WebSocket connections.
 /// Broadcasts knowledge updates, new items, and other events to connected clients.
 /// </summary>
-public class RealTimeNotificationService
+public class RealTimeNotificationService : IRealTimeNotificationService
 {
     private readonly ILogger<RealTimeNotificationService> _logger;
     private readonly IConfiguration _configuration;
@@ -26,6 +26,53 @@ public class RealTimeNotificationService
     }
 
     public bool IsEnabled => _configuration.GetValue<bool>("Mcp:Features:RealTimeUpdates", true);
+
+    // Interface implementation methods
+    public async Task NotifyKnowledgeCreatedAsync(Knowledge knowledge)
+    {
+        var item = new KnowledgeSearchItem
+        {
+            Id = knowledge.Id,
+            Type = knowledge.Type,
+            Content = knowledge.Content,
+            Tags = knowledge.Tags
+        };
+        await BroadcastKnowledgeCreatedAsync(item, knowledge.Workspace);
+    }
+
+    public async Task NotifyKnowledgeUpdatedAsync(Knowledge knowledge)
+    {
+        var item = new KnowledgeSearchItem
+        {
+            Id = knowledge.Id,
+            Type = knowledge.Type,
+            Content = knowledge.Content,
+            Tags = knowledge.Tags
+        };
+        await BroadcastKnowledgeUpdatedAsync(item, knowledge.Workspace);
+    }
+
+    public async Task NotifyKnowledgeDeletedAsync(string knowledgeId)
+    {
+        await BroadcastKnowledgeDeletedAsync(knowledgeId, "default");
+    }
+
+    public async Task NotifyCheckpointCreatedAsync(string sessionId, int sequenceNumber)
+    {
+        await BroadcastCheckpointCreatedAsync($"checkpoint-{sessionId}-{sequenceNumber}", sessionId, "default");
+    }
+
+    public async Task NotifyChecklistItemCompletedAsync(string checklistId, string itemId)
+    {
+        // Placeholder - implement if needed
+        await Task.CompletedTask;
+    }
+
+    public async Task NotifyRelationshipCreatedAsync(string fromId, string toId, string relationshipType)
+    {
+        // Placeholder - implement if needed
+        await Task.CompletedTask;
+    }
 
     /// <summary>
     /// Broadcasts knowledge item creation to all connected clients

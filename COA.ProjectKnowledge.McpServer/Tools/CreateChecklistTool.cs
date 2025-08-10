@@ -34,6 +34,55 @@ public class CreateChecklistTool : McpToolBase<CreateChecklistParams, CreateChec
     {
         try
         {
+            // Validate required parameters
+            if (string.IsNullOrWhiteSpace(parameters.Content))
+            {
+                return new CreateChecklistResult
+                {
+                    Success = false,
+                    Error = new ErrorInfo
+                    {
+                        Code = "CHECKLIST_VALIDATION_ERROR",
+                        Message = "Content is required and cannot be empty",
+                        Recovery = new RecoveryInfo
+                        {
+                            Steps = new[]
+                            {
+                                "Provide checklist content/description",
+                                "Ensure content is not empty or whitespace only"
+                            }
+                        }
+                    }
+                };
+            }
+            
+            // Validate parent checklist exists if specified
+            if (!string.IsNullOrWhiteSpace(parameters.ParentChecklistId))
+            {
+                var parentExists = await _checklistService.GetChecklistAsync(parameters.ParentChecklistId);
+                if (parentExists == null)
+                {
+                    return new CreateChecklistResult
+                    {
+                        Success = false,
+                        Error = new ErrorInfo
+                        {
+                            Code = "PARENT_CHECKLIST_NOT_FOUND",
+                            Message = $"Parent checklist '{parameters.ParentChecklistId}' not found",
+                            Recovery = new RecoveryInfo
+                            {
+                                Steps = new[]
+                                {
+                                    "Verify parent checklist ID exists",
+                                    "Create parent checklist first if needed",
+                                    "Remove parent checklist ID to create as root checklist"
+                                }
+                            }
+                        }
+                    };
+                }
+            }
+            
             var checklist = await _checklistService.CreateChecklistAsync(
                 parameters.Content,
                 parameters.Items?.ToList() ?? new List<string>(),

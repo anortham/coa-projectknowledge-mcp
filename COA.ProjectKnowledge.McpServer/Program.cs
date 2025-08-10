@@ -92,7 +92,7 @@ public class Program
         services.AddHostedService(provider => provider.GetRequiredService<WebSocketBroadcastService>());
         
         // Real-time notification service for WebSocket broadcasts
-        services.AddSingleton<RealTimeNotificationService>(provider =>
+        services.AddSingleton<IRealTimeNotificationService, RealTimeNotificationService>(provider =>
         {
             var logger = provider.GetRequiredService<ILogger<RealTimeNotificationService>>();
             var config = provider.GetRequiredService<IConfiguration>();

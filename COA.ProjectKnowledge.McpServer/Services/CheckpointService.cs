@@ -12,10 +12,10 @@ public class CheckpointService
 {
     private readonly KnowledgeDbContext _context;
     private readonly IWorkspaceResolver _workspaceResolver;
-    private readonly RealTimeNotificationService _notificationService;
+    private readonly IRealTimeNotificationService _notificationService;
     private readonly ILogger<CheckpointService> _logger;
 
-    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver, RealTimeNotificationService notificationService, ILogger<CheckpointService> logger)
+    public CheckpointService(KnowledgeDbContext context, IWorkspaceResolver workspaceResolver, IRealTimeNotificationService notificationService, ILogger<CheckpointService> logger)
     {
         _context = context;
         _workspaceResolver = workspaceResolver;
@@ -28,10 +28,17 @@ public class CheckpointService
         var workspace = _workspaceResolver.GetCurrentWorkspace();
         sessionId ??= Guid.NewGuid().ToString();
         
+        // Calculate sequence number for this session
+        var existingCheckpoints = await _context.Knowledge
+            .Where(k => k.Type == KnowledgeTypes.Checkpoint && k.Workspace == workspace)
+            .Where(k => k.Tags != null && k.Tags.Contains($"\"{sessionId}\""))
+            .CountAsync();
+        
         var checkpoint = new Checkpoint
         {
             Content = content,
             SessionId = sessionId,
+            SequenceNumber = existingCheckpoints,
             ActiveFiles = (activeFiles ?? new List<string>()).ToArray(),
             Workspace = workspace
         };
@@ -43,8 +50,9 @@ public class CheckpointService
             Content = checkpoint.Content,
             Metadata = JsonSerializer.Serialize(new
             {
-                checkpoint.SessionId,
-                checkpoint.ActiveFiles
+                sessionId = checkpoint.SessionId,
+                sequenceNumber = checkpoint.SequenceNumber,
+                activeFiles = checkpoint.ActiveFiles
             }),
             Tags = JsonSerializer.Serialize(new List<string> { "checkpoint", sessionId }),
             Priority = "normal",
@@ -64,7 +72,7 @@ public class CheckpointService
         {
             try
             {
-                await _notificationService.BroadcastCheckpointCreatedAsync(checkpoint.Id, checkpoint.SessionId, checkpoint.Workspace);
+                await _notificationService.NotifyCheckpointCreatedAsync(checkpoint.SessionId, checkpoint.SequenceNumber);
             }
             catch (Exception ex)
             {

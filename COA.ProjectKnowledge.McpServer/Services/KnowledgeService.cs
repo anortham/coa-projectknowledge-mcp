@@ -596,8 +596,8 @@ public class KnowledgeService
                 query = query.Where(k => k.Type == request.Type);
             }
             
-            // Order by chronological ID descending (contains timestamp for natural sorting)
-            query = query.OrderByDescending(k => k.Id);
+            // Order by creation date descending for consistent chronological sorting
+            query = query.OrderByDescending(k => k.CreatedAt);
             
             // Apply limit
             var entities = await query

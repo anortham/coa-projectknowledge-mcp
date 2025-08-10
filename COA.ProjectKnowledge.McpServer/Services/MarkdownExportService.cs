@@ -340,9 +340,16 @@ public class MarkdownExportService
         // Statistics
         content.AppendLine();
         content.AppendLine("## Statistics");
-        content.AppendLine($"- Oldest entry: {items.Min(i => i.CreatedAt):yyyy-MM-dd}");
-        content.AppendLine($"- Newest entry: {items.Max(i => i.CreatedAt):yyyy-MM-dd}");
-        content.AppendLine($"- Most accessed: {items.OrderByDescending(i => i.AccessCount).First().Id}");
+        if (items.Count > 0)
+        {
+            content.AppendLine($"- Oldest entry: {items.Min(i => i.CreatedAt):yyyy-MM-dd}");
+            content.AppendLine($"- Newest entry: {items.Max(i => i.CreatedAt):yyyy-MM-dd}");
+            content.AppendLine($"- Most accessed: {items.OrderByDescending(i => i.AccessCount).First().Id}");
+        }
+        else
+        {
+            content.AppendLine("- No knowledge items to analyze");
+        }
         
         await File.WriteAllTextAsync(indexPath, content.ToString());
     }
