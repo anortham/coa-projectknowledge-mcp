@@ -250,7 +250,9 @@ public class Program
 
         // Initialize database before starting
         // We need to build a temporary service provider for database initialization
+#pragma warning disable ASP0000 // Do not call 'IServiceCollection.BuildServiceProvider' in 'ConfigureServices'
         var tempServiceProvider = builder.Services.BuildServiceProvider();
+#pragma warning restore ASP0000
         using (var scope = tempServiceProvider.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();

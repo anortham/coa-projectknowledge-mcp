@@ -6,6 +6,7 @@ using COA.ProjectKnowledge.McpServer.Tools;
 using COA.ProjectKnowledge.McpServer.Resources;
 using COA.Mcp.Framework.TokenOptimization;
 using COA.Mcp.Framework.Interfaces;
+using COA.Mcp.Protocol;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -61,12 +62,12 @@ public class ExportKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
             // Create with minimal dependencies
             var knowledgeService = provider.GetRequiredService<KnowledgeService>();
             var checkpointService = provider.GetRequiredService<CheckpointService>();
-            var resourceCache = provider.GetRequiredService<IResourceCache>();
+            var resourceCache = provider.GetRequiredService<IResourceCache<ReadResourceResult>>();
             var logger = provider.GetRequiredService<ILogger<KnowledgeResourceProvider>>();
             return new KnowledgeResourceProvider(knowledgeService, checkpointService, resourceCache, logger);
         });
         
-        var resourceCacheMock = new Mock<IResourceCache>();
+        var resourceCacheMock = new Mock<IResourceCache<ReadResourceResult>>();
         services.AddSingleton(resourceCacheMock.Object);
         
         var resourceProviderLoggerMock = new Mock<ILogger<KnowledgeResourceProvider>>();

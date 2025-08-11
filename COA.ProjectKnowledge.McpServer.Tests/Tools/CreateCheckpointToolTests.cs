@@ -3,7 +3,6 @@ using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Tools;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Tests.TestBase;
-using COA.ProjectKnowledge.McpServer.Tools;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

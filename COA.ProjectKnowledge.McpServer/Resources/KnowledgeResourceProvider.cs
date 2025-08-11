@@ -16,7 +16,7 @@ public class KnowledgeResourceProvider : IResourceProvider
 {
     private readonly KnowledgeService _knowledgeService;
     private readonly CheckpointService _checkpointService;
-    private readonly IResourceCache _resourceCache;
+    private readonly IResourceCache<ReadResourceResult> _resourceCache;
     private readonly ILogger<KnowledgeResourceProvider> _logger;
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(15);
 
@@ -27,7 +27,7 @@ public class KnowledgeResourceProvider : IResourceProvider
     public KnowledgeResourceProvider(
         KnowledgeService knowledgeService,
         CheckpointService checkpointService,
-        IResourceCache resourceCache,
+        IResourceCache<ReadResourceResult> resourceCache,
         ILogger<KnowledgeResourceProvider> logger)
     {
         _knowledgeService = knowledgeService;

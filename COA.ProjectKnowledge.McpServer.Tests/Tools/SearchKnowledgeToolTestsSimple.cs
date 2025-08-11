@@ -17,7 +17,6 @@ namespace COA.ProjectKnowledge.McpServer.Tests.Tools;
 public class SearchKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
 {
     private SearchKnowledgeTool _tool = null!;
-    private Mock<IWorkspaceResolver> _workspaceResolverMock = null!;
     private Mock<ILogger<SearchKnowledgeTool>> _toolLoggerMock = null!;
     private Mock<IResponseCacheService> _cacheServiceMock = null!;
 
@@ -44,7 +43,7 @@ public class SearchKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
         _cacheServiceMock = new Mock<IResponseCacheService>();
         services.AddSingleton(_cacheServiceMock.Object);
 
-        var resourceCacheMock = new Mock<COA.Mcp.Framework.Interfaces.IResourceCache>();
+        var resourceCacheMock = new Mock<COA.Mcp.Framework.Interfaces.IResourceCache<COA.Mcp.Protocol.ReadResourceResult>>();
         services.AddSingleton(resourceCacheMock.Object);
 
         var tokenEstimatorMock = new Mock<COA.Mcp.Framework.TokenOptimization.ITokenEstimator>();

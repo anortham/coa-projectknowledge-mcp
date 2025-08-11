@@ -17,7 +17,6 @@ public class UpdateChecklistItemToolTestsSimple : ProjectKnowledgeTestBase
 {
     private UpdateChecklistItemTool _tool = null!;
     private ChecklistService _checklistService = null!;
-    private Mock<IWorkspaceResolver> _workspaceResolverMock = null!;
     private Mock<ILogger<ChecklistService>> _loggerMock = null!;
 
     protected override void ConfigureTestServices(IServiceCollection services)

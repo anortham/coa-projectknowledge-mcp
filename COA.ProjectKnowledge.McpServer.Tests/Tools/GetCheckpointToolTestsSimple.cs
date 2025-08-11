@@ -17,10 +17,8 @@ namespace COA.ProjectKnowledge.McpServer.Tests.Tools;
 public class GetCheckpointToolTestsSimple : ProjectKnowledgeTestBase
 {
     private GetCheckpointTool _tool = null!;
-    private Mock<IWorkspaceResolver> _workspaceResolverMock = null!;
     private Mock<ILogger<GetCheckpointTool>> _toolLoggerMock = null!;
     private Mock<IResponseCacheService> _cacheServiceMock = null!;
-    private Mock<ExecutionContextService> _contextServiceMock = null!;
 
     protected override void ConfigureTestServices(IServiceCollection services)
     {

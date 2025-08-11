@@ -26,9 +26,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="COA.Mcp.Client" Version="1.5.2" />
-    <PackageReference Include="COA.Mcp.Framework" Version="1.5.2" />
-    <PackageReference Include="COA.Mcp.Framework.TokenOptimization" Version="1.5.2" />
+    <PackageReference Include="COA.Mcp.Client" Version="1.5.4" />
+    <PackageReference Include="COA.Mcp.Framework" Version="1.5.4" />
+    <PackageReference Include="COA.Mcp.Framework.TokenOptimization" Version="1.5.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>
