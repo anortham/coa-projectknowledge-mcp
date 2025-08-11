@@ -119,6 +119,10 @@ public class Program
         services.AddSingleton<IResourceStorageService, ResourceStorageService>();
         services.AddSingleton<ICacheKeyGenerator, CacheKeyGenerator>();
         
+        // Register Response Builders
+        services.AddScoped<ResponseBuilders.KnowledgeSearchResponseBuilder>();
+        services.AddScoped<ResponseBuilders.CrossProjectSearchResponseBuilder>();
+        
         // Register all MCP tools - required for DI to work with DiscoverTools
         services.AddScoped<Tools.StoreKnowledgeTool>();
         services.AddScoped<Tools.SearchKnowledgeTool>();
@@ -241,21 +245,18 @@ public class Program
             }
         }
 
-        // Initialize database before starting
-        // Suppressed: This is needed for database initialization before the app starts
-#pragma warning disable ASP0000
-        var serviceProvider = builder.Services.BuildServiceProvider();
-#pragma warning restore ASP0000
+        // Note: Resource provider registration is now handled by the framework
+        // The framework's ResourceRegistry will discover IResourceProvider instances automatically
 
-        // Run EF Core migrations
-        using (var scope = serviceProvider.CreateScope())
+        // Initialize database before starting
+        // We need to build a temporary service provider for database initialization
+        var tempServiceProvider = builder.Services.BuildServiceProvider();
+        using (var scope = tempServiceProvider.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
             await EnsureDatabaseSchemaAsync(dbContext);
         }
-
-        // Note: Resource provider registration is now handled by the framework
-        // The framework's ResourceRegistry will discover IResourceProvider instances automatically
+        tempServiceProvider.Dispose();
 
         // Run the server
         try

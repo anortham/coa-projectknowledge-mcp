@@ -36,13 +36,13 @@ public class SearchCrossProjectTool : McpToolBase<CrossProjectSearchParams, Cros
         KnowledgeService knowledgeService,
         KnowledgeResourceProvider resourceProvider,
         ITokenEstimator tokenEstimator,
-        ILogger<SearchCrossProjectTool> logger,
-        ILogger<CrossProjectSearchResponseBuilder> builderLogger)
+        CrossProjectSearchResponseBuilder responseBuilder,
+        ILogger<SearchCrossProjectTool> logger)
     {
         _knowledgeService = knowledgeService;
         _resourceProvider = resourceProvider;
         _tokenEstimator = tokenEstimator;
-        _responseBuilder = new CrossProjectSearchResponseBuilder(builderLogger);
+        _responseBuilder = responseBuilder;
         _logger = logger;
     }
 

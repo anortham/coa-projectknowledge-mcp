@@ -58,6 +58,7 @@ public class SearchKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
         services.AddScoped<KnowledgeService>();
         services.AddScoped<CheckpointService>();
         services.AddScoped<COA.ProjectKnowledge.McpServer.Resources.KnowledgeResourceProvider>();
+        services.AddScoped<COA.ProjectKnowledge.McpServer.ResponseBuilders.KnowledgeSearchResponseBuilder>();
         services.AddScoped<SearchKnowledgeTool>();
     }
 

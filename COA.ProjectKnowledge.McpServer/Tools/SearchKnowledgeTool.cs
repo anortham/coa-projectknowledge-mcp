@@ -37,16 +37,16 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
         ITokenEstimator tokenEstimator,
         IResponseCacheService cacheService,
         ExecutionContextService contextService,
-        ILogger<SearchKnowledgeTool> logger,
-        ILogger<KnowledgeSearchResponseBuilder> builderLogger)
+        KnowledgeSearchResponseBuilder responseBuilder,
+        ILogger<SearchKnowledgeTool> logger)
     {
         _knowledgeService = knowledgeService;
         _resourceProvider = resourceProvider;
         _tokenEstimator = tokenEstimator;
         _cacheService = cacheService;
         _contextService = contextService;
+        _responseBuilder = responseBuilder;
         _logger = logger;
-        _responseBuilder = new KnowledgeSearchResponseBuilder(builderLogger);
     }
     
     public override string Name => ToolNames.FindKnowledge;

@@ -1,7 +1,7 @@
 using COA.Mcp.Framework.TokenOptimization;
-using COA.Mcp.Framework.TokenOptimization.ResponseBuilders;
 using COA.Mcp.Framework.TokenOptimization.Models;
 using COA.Mcp.Framework.TokenOptimization.Actions;
+using COA.Mcp.Framework.TokenOptimization.ResponseBuilders;
 using COA.Mcp.Framework.Models;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Tools;
@@ -9,13 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace COA.ProjectKnowledge.McpServer.ResponseBuilders;
 
-public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge>, List<KnowledgeItem>>
+public class KnowledgeSearchResponseBuilder : ProjectKnowledgeResponseBuilder<List<Knowledge>, List<KnowledgeItem>>
 {
-    private new readonly ILogger<KnowledgeSearchResponseBuilder> _logger;
-    
     public KnowledgeSearchResponseBuilder(ILogger<KnowledgeSearchResponseBuilder> logger) : base(logger)
     {
-        _logger = logger;
     }
     
     public override Task<List<KnowledgeItem>> BuildResponseAsync(
@@ -29,7 +26,7 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         {
             Id = k.Id,
             Type = k.Type,
-            Content = k.Content.Length > 500 ? k.Content.Substring(0, 497) + "..." : k.Content,
+            Content = TruncateContent(k.Content, 500),
             CreatedAt = k.CreatedAt,
             ModifiedAt = k.ModifiedAt,
             AccessCount = k.AccessCount,
@@ -40,7 +37,7 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         
         // Estimate tokens for full data
         var fullDataTokens = TokenEstimator.EstimateCollection(allItems);
-        _logger.LogDebug("Full data tokens: {Tokens}, Budget: {Budget}", fullDataTokens, tokenBudget);
+        _logger?.LogDebug("Full data tokens: {Tokens}, Budget: {Budget}", fullDataTokens, tokenBudget);
         
         // If data fits within budget, return all results
         if (fullDataTokens <= tokenBudget)
@@ -83,19 +80,6 @@ public class KnowledgeSearchResponseBuilder : BaseResponseBuilder<List<Knowledge
         }
         
         return result;
-    }
-    
-    private int GetTypePriority(string type)
-    {
-        return type switch
-        {
-            "Checkpoint" => 1,
-            "Checklist" => 2,
-            "ProjectInsight" => 3,
-            "TechnicalDebt" => 4,
-            "WorkNote" => 5,
-            _ => 6
-        };
     }
     
     protected override List<string> GenerateInsights(List<Knowledge> data, string responseMode)

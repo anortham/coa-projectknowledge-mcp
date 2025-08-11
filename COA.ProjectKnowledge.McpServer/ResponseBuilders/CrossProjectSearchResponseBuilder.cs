@@ -1,7 +1,7 @@
 using COA.Mcp.Framework.TokenOptimization;
-using COA.Mcp.Framework.TokenOptimization.ResponseBuilders;
 using COA.Mcp.Framework.TokenOptimization.Models;
 using COA.Mcp.Framework.TokenOptimization.Actions;
+using COA.Mcp.Framework.TokenOptimization.ResponseBuilders;
 using COA.Mcp.Framework.Models;
 using COA.ProjectKnowledge.McpServer.Models;
 using COA.ProjectKnowledge.McpServer.Tools;
@@ -9,13 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace COA.ProjectKnowledge.McpServer.ResponseBuilders;
 
-public class CrossProjectSearchResponseBuilder : BaseResponseBuilder<List<CrossWorkspaceSearchItem>, List<CrossProjectKnowledgeItem>>
+public class CrossProjectSearchResponseBuilder : ProjectKnowledgeResponseBuilder<List<CrossWorkspaceSearchItem>, List<CrossProjectKnowledgeItem>>
 {
-    private new readonly ILogger<CrossProjectSearchResponseBuilder> _logger;
-    
     public CrossProjectSearchResponseBuilder(ILogger<CrossProjectSearchResponseBuilder> logger) : base(logger)
     {
-        _logger = logger;
     }
     
     public override Task<List<CrossProjectKnowledgeItem>> BuildResponseAsync(
@@ -41,7 +38,7 @@ public class CrossProjectSearchResponseBuilder : BaseResponseBuilder<List<CrossW
         
         // Estimate tokens for full data
         var fullDataTokens = TokenEstimator.EstimateCollection(allItems);
-        _logger.LogDebug("Full cross-project data tokens: {Tokens}, Budget: {Budget}", fullDataTokens, tokenBudget);
+        _logger?.LogDebug("Full cross-project data tokens: {Tokens}, Budget: {Budget}", fullDataTokens, tokenBudget);
         
         // If data fits within budget, return all results
         if (fullDataTokens <= tokenBudget)
@@ -105,19 +102,6 @@ public class CrossProjectSearchResponseBuilder : BaseResponseBuilder<List<CrossW
         }
         
         return result;
-    }
-    
-    private int GetTypePriority(string type)
-    {
-        return type switch
-        {
-            "Checkpoint" => 1,
-            "Checklist" => 2,
-            "ProjectInsight" => 3,
-            "TechnicalDebt" => 4,
-            "WorkNote" => 5,
-            _ => 6
-        };
     }
     
     protected override List<string> GenerateInsights(List<CrossWorkspaceSearchItem> data, string responseMode)
