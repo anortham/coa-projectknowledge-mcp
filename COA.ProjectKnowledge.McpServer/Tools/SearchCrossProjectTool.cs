@@ -4,7 +4,10 @@ using COA.Mcp.Framework;
 using COA.Mcp.Framework.Exceptions;
 using COA.Mcp.Framework.Interfaces;
 using COA.Mcp.Framework.TokenOptimization;
+using COA.Mcp.Framework.TokenOptimization.Models;
+using COA.Mcp.Framework.TokenOptimization.ResponseBuilders;
 using COA.ProjectKnowledge.McpServer.Models;
+using COA.ProjectKnowledge.McpServer.ResponseBuilders;
 using COA.ProjectKnowledge.McpServer.Services;
 using COA.ProjectKnowledge.McpServer.Resources;
 using COA.ProjectKnowledge.McpServer.Constants;
@@ -26,17 +29,20 @@ public class SearchCrossProjectTool : McpToolBase<CrossProjectSearchParams, Cros
     private readonly KnowledgeService _knowledgeService;
     private readonly KnowledgeResourceProvider _resourceProvider;
     private readonly ITokenEstimator _tokenEstimator;
+    private readonly CrossProjectSearchResponseBuilder _responseBuilder;
     private readonly ILogger<SearchCrossProjectTool> _logger;
 
     public SearchCrossProjectTool(
         KnowledgeService knowledgeService,
         KnowledgeResourceProvider resourceProvider,
         ITokenEstimator tokenEstimator,
-        ILogger<SearchCrossProjectTool> logger)
+        ILogger<SearchCrossProjectTool> logger,
+        ILogger<CrossProjectSearchResponseBuilder> builderLogger)
     {
         _knowledgeService = knowledgeService;
         _resourceProvider = resourceProvider;
         _tokenEstimator = tokenEstimator;
+        _responseBuilder = new CrossProjectSearchResponseBuilder(builderLogger);
         _logger = logger;
     }
 
@@ -67,81 +73,56 @@ public class SearchCrossProjectTool : McpToolBase<CrossProjectSearchParams, Cros
                 };
             }
 
-            var crossProjectItems = response.Items.Cast<CrossWorkspaceSearchItem>().Select(item => new CrossProjectKnowledgeItem
+            // Convert service items to a list for the response builder
+            var crossWorkspaceItems = response.Items.Cast<CrossWorkspaceSearchItem>().ToList();
+            
+            // Use the response builder to get optimized CrossProjectKnowledgeItems
+            var responseContext = new ResponseContext
             {
-                Id = item.Id,
-                Type = item.Type,
-                Content = item.Content.Length > 500 ? item.Content.Substring(0, 497) + "..." : item.Content,
-                Workspace = item.Workspace,
-                Tags = item.Tags,
-                Status = item.Status,
-                Priority = item.Priority,
-                CreatedAt = item.CreatedAt,
-                ModifiedAt = item.ModifiedAt,
-                AccessCount = item.AccessCount
-            }).ToList();
+                ResponseMode = "adaptive",
+                TokenLimit = parameters.MaxTokens ?? 8000,
+                ToolName = Name
+            };
+            
+            var resultItems = await _responseBuilder.BuildResponseAsync(crossWorkspaceItems, responseContext);
 
             // Calculate actual token usage
-            var responseTokens = _tokenEstimator.EstimateCollection(crossProjectItems);
-            var tokenLimit = parameters.MaxTokens ?? 8000;
+            var actualTokens = _tokenEstimator.EstimateCollection(resultItems);
+            _logger.LogDebug("Cross-project response tokens: {Actual} (limit: {Limit})", actualTokens, responseContext.TokenLimit);
             
-            _logger.LogDebug("Cross-project search tokens: {Tokens} (limit: {Limit})", responseTokens, tokenLimit);
-            
-            // If results exceed token limit, store as resource
-            if (responseTokens > tokenLimit)
+            // Check if data was truncated (fewer items returned than original)
+            string? resourceUri = null;
+            if (crossWorkspaceItems.Count > resultItems.Count)
             {
                 var searchId = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8)}";
-                var resourceUri = _resourceProvider.StoreAsResource(
+                resourceUri = _resourceProvider.StoreAsResource(
                     "search",
                     searchId,
-                    crossProjectItems,
-                    $"Cross-project search results for '{parameters.Query}' ({crossProjectItems.Count} items)");
+                    crossWorkspaceItems,
+                    $"Full cross-project search results for '{parameters.Query}' ({crossWorkspaceItems.Count} items)");
 
-                // Calculate how many items fit in token budget
-                var previewItems = new List<CrossProjectKnowledgeItem>();
-                var currentTokens = 0;
-                var tokenBudget = (int)(tokenLimit * 0.8); // Use 80% for data, leave room for metadata
-                
-                foreach (var item in crossProjectItems)
-                {
-                    var itemTokens = _tokenEstimator.EstimateObject(item);
-                    if (currentTokens + itemTokens <= tokenBudget)
-                    {
-                        previewItems.Add(item);
-                        currentTokens += itemTokens;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                // Return limited items with resource URI
-                return new CrossProjectSearchResult
-                {
-                    Success = true,
-                    Items = previewItems,
-                    TotalCount = response.TotalCount,
-                    WorkspaceCount = crossProjectItems.Select(i => i.Workspace).Distinct().Count(),
-                    ResourceUri = resourceUri,
-                    Message = $"Found {crossProjectItems.Count} items across {crossProjectItems.Select(i => i.Workspace).Distinct().Count()} projects (showing {previewItems.Count}). Full results: {resourceUri}",
-                    Meta = new ToolExecutionMetadata
-                    {
-                        Mode = "token-optimized",
-                        Truncated = true,
-                        Tokens = currentTokens
-                    }
-                };
             }
-
-            return new CrossProjectSearchResult
+            
+            // Create the result with the optimized items
+            var workspaceCount = resultItems.Select(i => i.Workspace).Distinct().Count();
+            var result = new CrossProjectSearchResult
             {
                 Success = true,
-                Items = crossProjectItems,
+                Items = resultItems,
                 TotalCount = response.TotalCount,
-                WorkspaceCount = crossProjectItems.Select(i => i.Workspace).Distinct().Count(),
-                Message = response.Message ?? $"Found {crossProjectItems.Count} matching knowledge items across {crossProjectItems.Select(i => i.Workspace).Distinct().Count()} projects"
+                WorkspaceCount = workspaceCount,
+                ResourceUri = resourceUri,
+                Message = $"Found {response.TotalCount} items across {workspaceCount} projects" + 
+                         (resourceUri != null ? " (truncated for token limit)" : ""),
+                Meta = new ToolExecutionMetadata
+                {
+                    Mode = "token-optimized",
+                    Truncated = resourceUri != null,
+                    Tokens = actualTokens
+                }
             };
+            
+            return result;
         }
         catch (Exception ex)
         {

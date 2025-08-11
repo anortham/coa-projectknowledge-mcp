@@ -157,142 +157,39 @@ public class SearchKnowledgeTool : McpToolBase<SearchKnowledgeParams, SearchKnow
                 ToolName = Name
             };
             
-            // Use the response builder to create an optimized response
-            var optimizedResponse = await _responseBuilder.BuildResponseAsync(knowledgeItems, responseContext);
+            // Use the response builder to get optimized KnowledgeItems directly
+            var resultItems = await _responseBuilder.BuildResponseAsync(knowledgeItems, responseContext);
             
-            // Check if we got an AIOptimizedResponse
-            if (optimizedResponse is AIOptimizedResponse aiResponse)
+            // Calculate actual token usage
+            var actualTokens = _tokenEstimator.EstimateCollection(resultItems);
+            _logger.LogDebug("Response tokens: {Actual} (limit: {Limit})", actualTokens, responseContext.TokenLimit);
+            
+            // Check if data was truncated (fewer items returned than original)
+            string? resourceUri = null;
+            if (knowledgeItems.Count > resultItems.Count)
             {
-                var responseData = aiResponse.Data as AIResponseData;
-                var resultItems = new List<KnowledgeItem>();
-                
-                // Convert the results back to KnowledgeItem format
-                if (responseData?.Results != null && responseData.Results is IEnumerable<object> results)
-                {
-                    foreach (dynamic item in results)
-                    {
-                        resultItems.Add(new KnowledgeItem
-                        {
-                            Id = item.Id,
-                            Type = item.Type,
-                            Content = item.Content,
-                            CreatedAt = item.CreatedAt,
-                            Tags = item.Tags,
-                            Status = item.Status,
-                            Priority = item.Priority
-                        });
-                    }
-                }
-                
-                // Calculate actual token usage
-                var actualTokens = _tokenEstimator.EstimateObject(aiResponse);
-                _logger.LogDebug("Response tokens: {Actual} (limit: {Limit})", actualTokens, responseContext.TokenLimit);
-                
-                // If data was truncated, store full results as resource
-                if (aiResponse.Meta?.Truncated == true && knowledgeItems.Count > resultItems.Count)
-                {
-                    var searchId = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8)}";
-                    var resourceUri = _resourceProvider.StoreAsResource(
-                        "search",
-                        searchId,
-                        knowledgeItems,
-                        $"Full search results for '{parameters.Query}' ({knowledgeItems.Count} items)");
-                    
-                    var truncatedResult = new SearchKnowledgeResult
-                    {
-                        Success = true,
-                        Items = resultItems,
-                        TotalCount = responseData?.ExtensionData?.ContainsKey("TotalCount") == true 
-                        ? Convert.ToInt32(responseData.ExtensionData["TotalCount"]) 
-                        : knowledgeItems.Count,
-                        ResourceUri = resourceUri,
-                        Message = responseData?.Summary ?? $"Found {knowledgeItems.Count} items",
-                        Insights = aiResponse.Insights,
-                        Actions = aiResponse.Actions?.Select(a => new SuggestedAction
-                        {
-                            Tool = a.Action,
-                            Description = a.Description,
-                            Parameters = a.Parameters
-                        }).ToList(),
-                        Meta = new ToolExecutionMetadata
-                        {
-                            Mode = "ai-optimized",
-                            Truncated = true,
-                            Tokens = actualTokens
-                        }
-                    };
-                    
-                    // Cache the result for future requests
-                    try
-                    {
-                        await _cacheService.SetAsync(cacheKey, truncatedResult, GetCacheOptions(parameters));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to cache truncated result for key: {CacheKey}", cacheKey);
-                    }
-                    
-                    return truncatedResult;
-                }
-                
-                var optimizedResult = new SearchKnowledgeResult
-                {
-                    Success = true,
-                    Items = resultItems,
-                    TotalCount = responseData?.ExtensionData?.ContainsKey("TotalCount") == true 
-                        ? Convert.ToInt32(responseData.ExtensionData["TotalCount"]) 
-                        : knowledgeItems.Count,
-                    Message = responseData?.Summary ?? $"Found {knowledgeItems.Count} items",
-                    Insights = aiResponse.Insights,
-                    Actions = aiResponse.Actions?.Select(a => new SuggestedAction
-                    {
-                        Tool = a.Action,
-                        Description = a.Description,
-                        Parameters = a.Parameters
-                    }).ToList(),
-                    Meta = new ToolExecutionMetadata
-                    {
-                        Mode = "ai-optimized",
-                        Truncated = false,
-                        Tokens = actualTokens
-                    }
-                };
-                
-                // Cache the result for future requests
-                try
-                {
-                    await _cacheService.SetAsync(cacheKey, optimizedResult, GetCacheOptions(parameters));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to cache optimized result for key: {CacheKey}", cacheKey);
-                }
-                
-                return optimizedResult;
+                var searchId = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8)}";
+                resourceUri = _resourceProvider.StoreAsResource(
+                    "search",
+                    searchId,
+                    knowledgeItems,
+                    $"Full search results for '{parameters.Query}' ({knowledgeItems.Count} items)");
             }
             
-            // Fallback to simple response if builder returns non-AI response
-            var items = response.Items?.Select(k => new KnowledgeItem
-            {
-                Id = k.Id,
-                Type = k.Type,
-                Content = k.Content.Length > 500 
-                    ? k.Content.Substring(0, 497) + "..." 
-                    : k.Content,
-                CreatedAt = k.CreatedAt,
-                ModifiedAt = k.ModifiedAt,
-                AccessCount = k.AccessCount,
-                Tags = k.Tags,
-                Status = k.Status,
-                Priority = k.Priority
-            }).ToList() ?? new List<KnowledgeItem>();
-            
+            // Create the result with the optimized items
             var result = new SearchKnowledgeResult
             {
                 Success = true,
-                Items = items,
+                Items = resultItems,
                 TotalCount = response.TotalCount,
-                Message = response.Message ?? $"Found {items.Count} matching knowledge items"
+                ResourceUri = resourceUri,
+                Message = $"Found {response.TotalCount} items" + (resourceUri != null ? " (truncated for token limit)" : ""),
+                Meta = new ToolExecutionMetadata
+                {
+                    Mode = "token-optimized",
+                    Truncated = resourceUri != null,
+                    Tokens = actualTokens
+                }
             };
             
             // Cache the result for future requests
