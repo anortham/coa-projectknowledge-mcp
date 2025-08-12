@@ -1,5 +1,9 @@
 # COA ProjectKnowledge MCP
 
+[![NuGet](https://img.shields.io/nuget/v/COA.ProjectKnowledge.MCP.svg)](https://www.nuget.org/packages/COA.ProjectKnowledge.MCP)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/COA.ProjectKnowledge.MCP.svg)](https://www.nuget.org/packages/COA.ProjectKnowledge.MCP)
+[![.NET Version](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
+
 **Production-ready knowledge management system for MCP (Model Context Protocol) with federation capabilities and AI-optimized tooling.**
 
 ## 🚀 Features
@@ -29,20 +33,32 @@
 - Global .NET tool packaging
 - 100% ErrorHelpers integration across all 14 tools
 - Comprehensive error handling with actionable recovery steps
-- Framework v1.5.4 with enhanced features
+- Framework v1.7.0 with enhanced features
 - Centralized response builders for consistent formatting
 - Serilog file-only logging
 - Service lifetime optimizations
 
 ## 📦 Installation
 
-### As Global .NET Tool (Recommended)
+### From NuGet (Recommended)
+```bash
+# Install as global .NET tool from NuGet
+dotnet tool install --global COA.ProjectKnowledge.MCP
+
+# Start federation hub
+projectknowledge --mode http --port 5100
+
+# Or run in STDIO mode (auto-detected by Claude Code)
+projectknowledge
+```
+
+### From Source
 ```bash
 # Build release version
 dotnet build -c Release
 
-# Install globally 
-dotnet tool install --global --add-source ./COA.ProjectKnowledge.McpServer/bin/Release projectknowledge
+# Install globally from local build
+dotnet tool install --global --add-source ./COA.ProjectKnowledge.McpServer/bin/Release COA.ProjectKnowledge.MCP
 
 # Start federation hub
 projectknowledge --mode http --port 5100
@@ -126,7 +142,7 @@ The MCP server auto-configures with Claude Code. No manual setup required.
 - **Scoped Services**: Proper dependency injection lifetimes
 
 ### Technology Stack
-- **.NET 9.0** with COA.Mcp.Framework 1.5.4
+- **.NET 9.0** with COA.Mcp.Framework 1.7.0
 - **SQLite** with full-text search (FTS5) and temporal scoring
 - **Entity Framework Core** for data access
 - **Serilog** for structured logging

@@ -9,7 +9,7 @@
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>projectknowledge</ToolCommandName>
-    <PackageId>COA.ProjectKnowledge</PackageId>
+    <PackageId>COA.ProjectKnowledge.MCP</PackageId>
     <Authors>COA Development</Authors>
     <Description>A central knowledge hub for development tools and MCP servers with cross-project search capabilities.</Description>
     <PackageTags>mcp;knowledge;development;federation;claude;dotnet-tool</PackageTags>
@@ -26,9 +26,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="COA.Mcp.Client" Version="1.5.6" />
-    <PackageReference Include="COA.Mcp.Framework" Version="1.5.6" />
-    <PackageReference Include="COA.Mcp.Framework.TokenOptimization" Version="1.5.6" />
+    <PackageReference Include="COA.Mcp.Client" Version="1.7.0" />
+    <PackageReference Include="COA.Mcp.Framework" Version="1.7.0" />
+    <PackageReference Include="COA.Mcp.Framework.TokenOptimization" Version="1.7.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>
