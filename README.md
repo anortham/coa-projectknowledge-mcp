@@ -194,10 +194,30 @@ find_knowledge(boost_frequent=true, order_by="accesscount")
 - `ToolDescriptions` constants for maintainable guidance
 - No magic strings - centralized renaming
 
-## 📝 Slash Commands
+## 📝 Slash Commands (Claude Code)
 
-- `/checkpoint` - Create structured work checkpoint
-- `/resume` - Load and restore latest checkpoint
+Special commands available in Claude Code for enhanced workflow:
+
+### `/checkpoint` - Save Work Session
+Creates a structured checkpoint of your current work:
+- Automatically tracks what you've accomplished
+- Documents current state and next steps
+- Records modified files and blockers
+- Maintains session continuity for easy resumption
+
+**Usage**: Type `/checkpoint` to save your current progress
+
+### `/resume` - Restore Work Session  
+Intelligently restores your previous work context:
+- Loads the most recent checkpoint
+- Shows recent activity timeline (last 24 hours)
+- Displays active checklists with progress
+- Provides next steps from the checkpoint
+- Ready to continue where you left off
+
+**Usage**: Type `/resume` to continue from your last session
+
+**Note**: These commands require the MCP server to be running and are specific to Claude Code
 
 ## 📤 Export Formats
 
