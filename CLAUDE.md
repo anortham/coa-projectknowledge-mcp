@@ -12,8 +12,8 @@ This is a fully-functional knowledge management MCP server that reduces complexi
 - **Chronological IDs**: Time-based IDs for natural sorting and performance
 
 ### Technology Stack
-- **.NET 9.0** with COA.Mcp.Framework 1.4.2
-- **SQLite** with full-text search (FTS5)
+- **.NET 9.0** with COA.Mcp.Framework 1.5.4
+- **SQLite** with full-text search (FTS5) and temporal scoring
 - **Dual-Mode Operation**: STDIO for Claude Code, HTTP for federation
 - **Global .NET Tool**: Installable via `dotnet tool install`
 
@@ -21,7 +21,7 @@ This is a fully-functional knowledge management MCP server that reduces complexi
 
 ### Knowledge Management
 - `store_knowledge` - Capture and save important information, insights, decisions, or findings
-- `find_knowledge` - Search and discover relevant information from the knowledge base
+- `find_knowledge` - **Enhanced temporal search** with intelligent ranking, advanced filtering, and temporal scoring that prioritizes recent and frequently accessed information
 
 ### Session & State Management  
 - `save_checkpoint` - Save current work state for later resumption with session tracking
@@ -131,12 +131,75 @@ This is a fully-functional knowledge management MCP server that reduces complexi
 - Cross-project search capabilities
 - Health monitoring and statistics
 
-✅ **Quality & Performance**
+✅ **Enhanced Search & Performance**
+- **Temporal scoring system** with multiple decay functions for intelligent knowledge ranking
+- **Advanced filtering capabilities** by type, tags, status, priority, and date ranges
+- **Access pattern tracking** to boost frequently referenced knowledge
+- **Centralized response builders** for consistent data formatting
+- **Enhanced error handling** with ErrorHelpers integration and recovery guidance
 - Service lifetime issues resolved
-- Chronological ID database optimization
+- Chronological ID database optimization  
 - Datetime handling fixed (local time support)
 - Quote handling in workspace queries
-- Comprehensive error handling
+
+## Enhanced Search Features
+
+### Temporal Knowledge Search
+The `find_knowledge` tool now includes advanced temporal scoring to surface the most relevant knowledge:
+
+#### Temporal Scoring Modes
+- **None**: No temporal scoring - pure relevance matching
+- **Default**: Moderate decay over 30 days (recommended for most use cases)
+- **Aggressive**: Strong preference for recent knowledge (7-day half-life)
+- **Gentle**: Slow decay over long periods (90-day half-life)
+
+#### Advanced Filtering Options
+- **Type Filtering**: Filter by knowledge types (ProjectInsight, TechnicalDebt, etc.)
+- **Tag Filtering**: Search by specific tags (any match)
+- **Status Filtering**: Filter by status values (active, completed, archived, etc.)
+- **Priority Filtering**: Filter by priority levels (low, normal, high, critical)
+- **Date Range Filtering**: Limit results to specific creation date ranges
+- **Workspace Filtering**: Search within specific workspaces or across all
+
+#### Boost Options
+- **BoostRecent**: Prioritize recently modified knowledge (default: true)
+- **BoostFrequent**: Prioritize frequently accessed knowledge (default: false)
+
+#### Sorting & Ordering
+- **OrderBy**: Sort by created, modified, accessed, accesscount, or relevance
+- **OrderDescending**: Control ascending/descending order (default: true)
+
+### Example Usage Patterns
+
+#### Find Recent Technical Debt
+```
+mcp__projectknowledge__find_knowledge
+Query: "refactoring"
+Types: ["TechnicalDebt"]
+TemporalScoring: Aggressive
+BoostRecent: true
+MaxResults: 10
+```
+
+#### Search Across Time Ranges
+```
+mcp__projectknowledge__find_knowledge
+Query: "authentication"
+FromDate: "2025-01-01"
+ToDate: "2025-03-31"
+Tags: ["security", "auth"]
+Priority: ["high", "critical"]
+```
+
+#### Find Frequently Referenced Knowledge
+```
+mcp__projectknowledge__find_knowledge
+Query: ""
+BoostFrequent: true
+OrderBy: "accesscount"
+OrderDescending: true
+MaxResults: 20
+```
 
 ## Testing Patterns
 
@@ -156,6 +219,17 @@ mcp__projectknowledge__save_checkpoint
 Content: "## Accomplished\n- Implemented JWT authentication\n- Added user registration\n## Next Steps\n1. Add role-based permissions\n2. Test security flows"
 SessionId: "auth-implementation-2025-08-08"
 ActiveFiles: ["AuthService.cs", "JwtHelper.cs"]
+```
+
+### Enhanced Knowledge Search
+```
+mcp__projectknowledge__find_knowledge
+Query: "authentication JWT"
+TemporalScoring: Default
+Types: ["ProjectInsight", "TechnicalDebt"]
+Tags: ["security", "jwt"]
+BoostRecent: true
+MaxResults: 10
 ```
 
 ### Cross-Project Search

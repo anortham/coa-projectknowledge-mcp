@@ -85,7 +85,7 @@ public class CreateRelationshipToolTests : ProjectKnowledgeTestBase
         result.Error.Should().BeNull();
 
         // Verify relationship was created in database
-        var relationships = DbContext.Relationships
+        var relationships = GetDbContext().Relationships
             .Where(r => r.FromId == item1.KnowledgeId && r.ToId == item2.KnowledgeId)
             .ToList();
         relationships.Should().HaveCount(1);
@@ -219,7 +219,7 @@ public class CreateRelationshipToolTests : ProjectKnowledgeTestBase
         result.Success.Should().BeTrue();
 
         // Verify correct relationship type
-        var relationship = DbContext.Relationships
+        var relationship = GetDbContext().Relationships
             .First(r => r.FromId == item1.KnowledgeId && r.ToId == item2.KnowledgeId);
         relationship.RelationshipType.Should().Be("parent_of");
     }
@@ -258,7 +258,7 @@ public class CreateRelationshipToolTests : ProjectKnowledgeTestBase
         result.Success.Should().BeTrue();
 
         // Verify description is stored
-        var relationship = DbContext.Relationships
+        var relationship = GetDbContext().Relationships
             .First(r => r.FromId == item1.KnowledgeId && r.ToId == item2.KnowledgeId);
         relationship.Description.Should().Be(description);
     }

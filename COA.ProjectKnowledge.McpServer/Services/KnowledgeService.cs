@@ -431,7 +431,8 @@ public class KnowledgeService
                 ModifiedAt = entity.ModifiedAt,
                 AccessedAt = entity.AccessedAt,
                 AccessCount = entity.AccessCount,
-                IsArchived = entity.ArchivedAt.HasValue
+                ArchivedAt = entity.ArchivedAt,
+                ExpiresAt = entity.ExpiresAt
             };
             
             // Parse and set metadata
@@ -649,5 +650,191 @@ public class KnowledgeService
             TotalItems = totalItems,
             Workspace = workspace
         };
+    }
+    
+    /// <summary>
+    /// Enhanced search with temporal scoring and advanced filtering
+    /// </summary>
+    public async Task<SearchKnowledgeResponse> SearchEnhancedAsync(KnowledgeSearchParameters parameters)
+    {
+        try
+        {
+            var workspace = parameters.Workspace ?? _workspaceResolver.GetCurrentWorkspace();
+            var query = _context.Knowledge.AsQueryable();
+            
+            // Apply workspace filter
+            if (!string.IsNullOrWhiteSpace(workspace))
+            {
+                query = query.Where(k => k.Workspace == workspace);
+            }
+            
+            // Apply type filter
+            if (parameters.Types != null && parameters.Types.Any())
+            {
+                query = query.Where(k => parameters.Types.Contains(k.Type));
+            }
+            
+            // Apply date range filter
+            if (parameters.FromDate.HasValue)
+            {
+                query = query.Where(k => k.CreatedAt >= parameters.FromDate.Value);
+            }
+            if (parameters.ToDate.HasValue)
+            {
+                query = query.Where(k => k.CreatedAt <= parameters.ToDate.Value);
+            }
+            
+            // Apply archived filter
+            if (!parameters.IncludeArchived)
+            {
+                query = query.Where(k => k.ArchivedAt == null);
+            }
+            
+            // Apply expired filter
+            query = query.Where(k => k.ExpiresAt == null || k.ExpiresAt > DateTime.UtcNow);
+            
+            // Apply tag filter
+            if (parameters.Tags != null && parameters.Tags.Any())
+            {
+                foreach (var tag in parameters.Tags)
+                {
+                    var tagLower = tag.ToLower();
+                    query = query.Where(k => k.Tags != null && k.Tags.ToLower().Contains(tagLower));
+                }
+            }
+            
+            // Apply status filter
+            if (parameters.Statuses != null && parameters.Statuses.Any())
+            {
+                query = query.Where(k => parameters.Statuses.Contains(k.Status));
+            }
+            
+            // Apply priority filter
+            if (parameters.Priorities != null && parameters.Priorities.Any())
+            {
+                query = query.Where(k => parameters.Priorities.Contains(k.Priority));
+            }
+            
+            // Apply text search
+            if (!string.IsNullOrWhiteSpace(parameters.Query))
+            {
+                var searchTerm = parameters.Query.ToLower();
+                query = query.Where(k => 
+                    k.Content.ToLower().Contains(searchTerm) ||
+                    (k.Tags != null && k.Tags.ToLower().Contains(searchTerm)) ||
+                    (k.Type != null && k.Type.ToLower().Contains(searchTerm)));
+            }
+            
+            // Get all matching items for scoring
+            var entities = await query.ToListAsync();
+            
+            // Apply temporal scoring if enabled
+            if (parameters.TemporalScoring != TemporalScoringMode.None)
+            {
+                var decayFunction = parameters.TemporalScoring switch
+                {
+                    TemporalScoringMode.Aggressive => TemporalDecayFunction.Aggressive,
+                    TemporalScoringMode.Gentle => TemporalDecayFunction.Gentle,
+                    _ => TemporalDecayFunction.Default
+                };
+                
+                var now = DateTime.UtcNow;
+                
+                // Calculate scores for each item
+                var scoredItems = entities.Select(e =>
+                {
+                    var ageInDays = (now - e.CreatedAt).TotalDays;
+                    var temporalScore = decayFunction.Calculate(ageInDays);
+                    
+                    // Apply access count boost if enabled
+                    var accessBoost = 1.0f;
+                    if (parameters.BoostFrequent && e.AccessCount > 0)
+                    {
+                        // Logarithmic scaling for access count (max 20% boost)
+                        accessBoost = 1.0f + (float)(Math.Log10(e.AccessCount + 1) * 0.05);
+                    }
+                    
+                    // Apply recency boost if enabled
+                    var recencyBoost = 1.0f;
+                    if (parameters.BoostRecent && e.ModifiedAt != e.CreatedAt)
+                    {
+                        var modifiedAgeInDays = (now - e.ModifiedAt).TotalDays;
+                        recencyBoost = 1.0f + (float)Math.Max(0, (7 - modifiedAgeInDays) / 7 * 0.2); // 20% boost for items modified in last week
+                    }
+                    
+                    var finalScore = temporalScore * accessBoost * recencyBoost;
+                    
+                    return new { Entity = e, Score = finalScore };
+                }).ToList();
+                
+                // Sort by score (highest first) then by ID for stability
+                entities = scoredItems
+                    .OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.Entity.Id)
+                    .Select(x => x.Entity)
+                    .ToList();
+            }
+            else
+            {
+                // Apply standard sorting
+                entities = parameters.OrderBy?.ToLower() switch
+                {
+                    "created" => parameters.OrderDescending 
+                        ? entities.OrderByDescending(e => e.CreatedAt).ToList()
+                        : entities.OrderBy(e => e.CreatedAt).ToList(),
+                    "modified" => parameters.OrderDescending
+                        ? entities.OrderByDescending(e => e.ModifiedAt).ToList()
+                        : entities.OrderBy(e => e.ModifiedAt).ToList(),
+                    "accessed" => parameters.OrderDescending
+                        ? entities.OrderByDescending(e => e.AccessedAt ?? DateTime.MinValue).ToList()
+                        : entities.OrderBy(e => e.AccessedAt ?? DateTime.MinValue).ToList(),
+                    "accesscount" => parameters.OrderDescending
+                        ? entities.OrderByDescending(e => e.AccessCount).ToList()
+                        : entities.OrderBy(e => e.AccessCount).ToList(),
+                    _ => entities.OrderByDescending(e => e.Id).ToList() // Default to chronological
+                };
+            }
+            
+            // Get total count before limiting
+            var totalCount = entities.Count;
+            
+            // Apply limit
+            entities = entities.Take(parameters.MaxResults).ToList();
+            
+            // Skip access tracking update in search to avoid entity tracking issues
+            // This can be handled separately if needed
+            
+            // Convert to response models
+            var items = entities.Select(e => new KnowledgeSearchItem
+            {
+                Id = e.Id,
+                Type = e.Type,
+                Content = e.Content,
+                Tags = e.Tags != null ? JsonSerializer.Deserialize<string[]>(e.Tags) : null,
+                Status = e.Status,
+                Priority = e.Priority,
+                CreatedAt = e.CreatedAt,
+                ModifiedAt = e.ModifiedAt,
+                AccessCount = e.AccessCount
+            }).ToList();
+            
+            return new SearchKnowledgeResponse
+            {
+                Success = true,
+                Items = items,
+                TotalCount = totalCount,
+                Message = $"Found {items.Count} matching knowledge items"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in enhanced search: {Message}", ex.ToString());
+            return new SearchKnowledgeResponse
+            {
+                Success = false,
+                Items = new List<KnowledgeSearchItem>(),
+                Error = $"Failed to search knowledge: {ex.Message} - Inner: {ex.InnerException?.Message}"
+            };
+        }
     }
 }

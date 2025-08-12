@@ -75,8 +75,8 @@ public class GetWorkspacesToolTests : ProjectKnowledgeTestBase
             AccessCount = 0
         };
 
-        DbContext.Knowledge.Add(knowledge);
-        await DbContext.SaveChangesAsync();
+        GetDbContext().Knowledge.Add(knowledge);
+        await GetDbContext().SaveChangesAsync();
     }
 
     [Test]
@@ -118,8 +118,8 @@ public class GetWorkspacesToolTests : ProjectKnowledgeTestBase
     {
         // Arrange
         // Clear all knowledge items
-        DbContext.Knowledge.RemoveRange(DbContext.Knowledge);
-        await DbContext.SaveChangesAsync();
+        GetDbContext().Knowledge.RemoveRange(GetDbContext().Knowledge);
+        await GetDbContext().SaveChangesAsync();
 
         var parameters = new GetWorkspacesParams();
 

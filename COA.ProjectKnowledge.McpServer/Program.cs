@@ -3,6 +3,7 @@ using COA.Mcp.Framework.Server.Services;
 using COA.Mcp.Framework.Interfaces;
 using COA.Mcp.Framework.Resources;
 using COA.Mcp.Framework.TokenOptimization;
+using COA.Mcp.Protocol;
 using COA.Mcp.Framework.TokenOptimization.Actions;
 using COA.Mcp.Framework.TokenOptimization.Caching;
 using COA.Mcp.Framework.TokenOptimization.Intelligence;
@@ -92,13 +93,16 @@ public class Program
         services.AddHostedService(provider => provider.GetRequiredService<WebSocketBroadcastService>());
         
         // Real-time notification service for WebSocket broadcasts
-        services.AddSingleton<IRealTimeNotificationService, RealTimeNotificationService>(provider =>
+        // Register as both interface and concrete type for DI resolution
+        services.AddSingleton<RealTimeNotificationService>(provider =>
         {
             var logger = provider.GetRequiredService<ILogger<RealTimeNotificationService>>();
             var config = provider.GetRequiredService<IConfiguration>();
             var webSocketService = provider.GetService<WebSocketBroadcastService>();
             return new RealTimeNotificationService(logger, config, webSocketService);
         });
+        services.AddSingleton<IRealTimeNotificationService>(provider => 
+            provider.GetRequiredService<RealTimeNotificationService>());
         
         // Execution context tracking service
         services.AddScoped<ExecutionContextService>();
@@ -107,7 +111,9 @@ public class Program
         services.AddHostedService<KnowledgeMaintenanceService>();
         
         // Register Resource Provider and Registry
-        // IResourceCache is provided by the framework and handles lifetime properly
+        // The framework provides IResourceCache (obsolete), but we need the generic version
+        // Register our own instance of the generic cache to avoid using obsolete interfaces
+        services.AddSingleton<IResourceCache<ReadResourceResult>, InMemoryResourceCache<ReadResourceResult>>();
         services.AddScoped<KnowledgeResourceProvider>();
         services.AddScoped<IResourceProvider>(provider => provider.GetRequiredService<KnowledgeResourceProvider>());
         
@@ -125,7 +131,7 @@ public class Program
         
         // Register all MCP tools - required for DI to work with DiscoverTools
         services.AddScoped<Tools.StoreKnowledgeTool>();
-        services.AddScoped<Tools.SearchKnowledgeTool>();
+        services.AddScoped<Tools.FindKnowledgeTool>(); // Enhanced search with temporal scoring
         services.AddScoped<Tools.CreateCheckpointTool>();
         services.AddScoped<Tools.GetCheckpointTool>();
         services.AddScoped<Tools.ListCheckpointsTool>();

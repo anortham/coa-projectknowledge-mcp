@@ -64,7 +64,7 @@ public class StoreKnowledgeToolTests : ProjectKnowledgeTestBase
         result.KnowledgeId.Should().NotBeNullOrEmpty();
 
         // Verify in database
-        var knowledge = await DbContext.Knowledge.FindAsync(result.KnowledgeId);
+        var knowledge = await GetDbContext().Knowledge.FindAsync(result.KnowledgeId);
         knowledge.Should().NotBeNull();
         knowledge!.Content.Should().Be("Test insight content");
     }
@@ -100,7 +100,7 @@ public class StoreKnowledgeToolTests : ProjectKnowledgeTestBase
         result.KnowledgeId.Should().NotBeNullOrEmpty();
         
         // Verify knowledge was created with code snippets
-        var knowledge = await DbContext.Knowledge.FindAsync(result.KnowledgeId);
+        var knowledge = await GetDbContext().Knowledge.FindAsync(result.KnowledgeId);
         knowledge.Should().NotBeNull();
         knowledge!.Metadata.Should().Contain("CodeSnippets");
     }
@@ -131,7 +131,7 @@ public class StoreKnowledgeToolTests : ProjectKnowledgeTestBase
         result.Success.Should().BeTrue();
         
         // Verify relationship was created
-        var relationships = DbContext.Relationships
+        var relationships = GetDbContext().Relationships
             .Where(r => r.FromId == result.KnowledgeId || r.ToId == result.KnowledgeId)
             .ToList();
         relationships.Should().HaveCount(1);

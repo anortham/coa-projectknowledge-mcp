@@ -8,7 +8,7 @@ public static class ToolDescriptions
     // Knowledge Management - Core Actions
     public const string StoreKnowledge = "Remember and preserve important information, insights, decisions, or findings for future reference. Perfect for architectural decisions, technical debt notes, lessons learned, bug analysis, or any valuable context that should be retained. Use proactively whenever you encounter something worth remembering - don't wait to be asked.";
     
-    public const string FindKnowledge = "Recall and search for relevant information from previous work. Use when you need to remember what was decided before, find related insights, or discover context about your current work. Perfect for questions like 'what did we decide about...?' or 'how did we handle this before?'";
+    public const string FindKnowledge = "Search and discover relevant knowledge with intelligent ranking that prioritizes recent and frequently accessed information. Supports advanced filtering by type, tags, status, priority, and date ranges. Uses temporal scoring to ensure the most relevant knowledge surfaces first. Perfect for questions like 'what did we decide about...?' or 'show me recent technical debt items'.";
     
     public const string DiscoverProjects = "Explore what projects and workspaces contain knowledge. Use proactively when starting work to understand what information is already available, or when you suspect relevant insights might exist in other projects.";
     

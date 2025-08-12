@@ -29,6 +29,10 @@ public class KnowledgeDbContext : DbContext
             entity.HasIndex(e => e.CreatedAt);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.Priority);
+            entity.HasIndex(e => e.AccessedAt);
+            entity.HasIndex(e => e.AccessCount);
+            entity.HasIndex(e => e.ArchivedAt);
+            entity.HasIndex(e => e.ExpiresAt);
             
             // Configure JSON columns
             entity.Property(e => e.Metadata).HasColumnType("TEXT");

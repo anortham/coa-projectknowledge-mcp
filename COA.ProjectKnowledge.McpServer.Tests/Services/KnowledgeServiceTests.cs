@@ -89,7 +89,7 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
 
-        var knowledge = DbContext.Knowledge.Find(result.KnowledgeId);
+        var knowledge = GetDbContext().Knowledge.Find(result.KnowledgeId);
         knowledge.Should().NotBeNull();
         knowledge!.Metadata.Should().Contain("CodeSnippets");
     }
@@ -199,7 +199,7 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
 
-        var updated = DbContext.Knowledge.Find("update-test-id");
+        var updated = GetDbContext().Knowledge.Find("update-test-id");
         updated.Should().NotBeNull();
         updated!.Content.Should().Be("Updated content");
         updated.Status.Should().Be("completed");
@@ -269,7 +269,7 @@ public class KnowledgeServiceTests : ProjectKnowledgeTestBase
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
 
-        var relationships = DbContext.Relationships
+        var relationships = GetDbContext().Relationships
             .Where(r => r.FromId == result.KnowledgeId || r.ToId == result.KnowledgeId)
             .ToList();
 

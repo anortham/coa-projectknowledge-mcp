@@ -71,7 +71,7 @@ public class CreateCheckpointToolTests : ProjectKnowledgeTestBase
         result.SequenceNumber.Should().Be(0); // First checkpoint in session
 
         // Verify in database
-        var checkpoint = await DbContext.Knowledge.FindAsync(result.CheckpointId);
+        var checkpoint = await GetDbContext().Knowledge.FindAsync(result.CheckpointId);
         checkpoint.Should().NotBeNull();
         checkpoint!.Type.Should().Be(KnowledgeTypes.Checkpoint);
         checkpoint.Content.Should().Contain("Implemented authentication");
@@ -96,7 +96,7 @@ public class CreateCheckpointToolTests : ProjectKnowledgeTestBase
         result.Success.Should().BeTrue();
 
         // Verify active files are stored in metadata
-        var checkpoint = await DbContext.Knowledge.FindAsync(result.CheckpointId);
+        var checkpoint = await GetDbContext().Knowledge.FindAsync(result.CheckpointId);
         checkpoint.Should().NotBeNull();
         checkpoint!.Metadata.Should().Contain("activeFiles");
     }
@@ -194,7 +194,7 @@ public class CreateCheckpointToolTests : ProjectKnowledgeTestBase
         result.Success.Should().BeTrue();
 
         // Verify formatting is preserved
-        var checkpoint = await DbContext.Knowledge.FindAsync(result.CheckpointId);
+        var checkpoint = await GetDbContext().Knowledge.FindAsync(result.CheckpointId);
         checkpoint.Should().NotBeNull();
         checkpoint!.Content.Should().Contain("## Accomplished");
         checkpoint.Content.Should().Contain("## Next Steps");

@@ -35,7 +35,12 @@ public class Knowledge
     public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
     public DateTime? AccessedAt { get; set; }
     public int AccessCount { get; set; } = 0;
-    public bool IsArchived { get; set; } = false;
+    public DateTime? ArchivedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    
+    // Computed properties
+    public bool IsArchived => ArchivedAt.HasValue;
+    public bool IsExpired => ExpiresAt.HasValue && ExpiresAt.Value <= DateTime.UtcNow;
     
     // Helper methods for metadata
     public T? GetMetadata<T>(string key)

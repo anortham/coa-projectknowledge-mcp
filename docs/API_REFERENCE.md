@@ -61,36 +61,78 @@ Store knowledge in the centralized knowledge base.
 
 ### find_knowledge
 
-Search the knowledge base with flexible queries.
+**Enhanced temporal search** with intelligent ranking and advanced filtering.
 
 **Parameters:**
 ```typescript
 {
-  query: string;            // Required: Search query
-  workspace?: string;       // Optional: Workspace to search (default: current)
-  types?: string[];         // Optional: Filter by knowledge types
-  maxResults?: number;      // Optional: Max results (default: 50)
-  includeArchived?: boolean;// Optional: Include archived items (default: false)
-  sortBy?: string;          // Optional: Sort field (created, modified, accessed)
-  sortDescending?: boolean; // Optional: Sort order (default: true)
+  // Basic Search
+  query?: string;            // Search query text
+  workspace?: string;        // Workspace to search (default: current)
+  maxResults?: number;       // Max results (default: 50)
+  
+  // Filtering
+  types?: string[];          // Filter by knowledge types
+  tags?: string[];           // Filter by tags (any match)
+  statuses?: string[];       // Filter by status values
+  priorities?: string[];     // Filter by priority levels
+  includeArchived?: boolean; // Include archived items (default: false)
+  fromDate?: string;         // Filter from creation date (ISO)
+  toDate?: string;           // Filter to creation date (ISO)
+  
+  // Sorting & Ordering
+  orderBy?: string;          // Sort by: created, modified, accessed, accesscount, relevance
+  orderDescending?: boolean; // Sort order (default: true)
+  
+  // Temporal Scoring
+  temporalScoring?: string;  // None, Default, Aggressive, Gentle (default: Default)
+  boostRecent?: boolean;     // Boost recently modified (default: true)
+  boostFrequent?: boolean;   // Boost frequently accessed (default: false)
 }
 ```
 
 **Returns:**
 ```typescript
 {
-  results: Knowledge[];     // Array of matching knowledge entries
-  count: number;           // Number of results returned
-  totalFound: number;      // Total matches before limiting
+  items: KnowledgeSearchItem[];  // Array of matching knowledge entries
+  totalCount: number;            // Total matches before limiting
+  message: string;               // Descriptive result message
+  resourceUri?: string;          // Resource URI if results stored as resource
 }
 ```
 
-**Example:**
+**Example - Basic Search:**
 ```json
 {
   "query": "database performance",
   "types": ["TechnicalDebt", "ProjectInsight"],
+  "temporalScoring": "Default",
   "maxResults": 20
+}
+```
+
+**Example - Advanced Temporal Search:**
+```json
+{
+  "query": "authentication",
+  "types": ["ProjectInsight"],
+  "tags": ["security", "jwt"],
+  "temporalScoring": "Aggressive",
+  "boostRecent": true,
+  "fromDate": "2025-01-01",
+  "priority": ["high", "critical"],
+  "maxResults": 10
+}
+```
+
+**Example - Find Frequently Referenced:**
+```json
+{
+  "query": "",
+  "boostFrequent": true,
+  "orderBy": "accesscount",
+  "orderDescending": true,
+  "maxResults": 15
 }
 ```
 

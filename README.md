@@ -6,8 +6,10 @@
 
 ✅ **Complete Knowledge Management**
 - 5 simplified knowledge types (reduced from 44+ in legacy system)  
+- **Temporal search with intelligent ranking** - prioritizes recent and frequently accessed knowledge
+- **Advanced filtering** by type, tags, status, priority, and date ranges
 - Cross-platform user-level storage (`~/.coa/knowledge/`)
-- Full-text search with SQLite FTS5
+- Full-text search with SQLite FTS5 and temporal scoring
 - Chronological IDs for optimal performance
 - Relationship management between knowledge items
 
@@ -27,7 +29,8 @@
 - Global .NET tool packaging
 - 100% ErrorHelpers integration across all 14 tools
 - Comprehensive error handling with actionable recovery steps
-- Framework v1.4.8 cache integration
+- Framework v1.5.4 with enhanced features
+- Centralized response builders for consistent formatting
 - Serilog file-only logging
 - Service lifetime optimizations
 
@@ -74,7 +77,7 @@ The MCP server auto-configures with Claude Code. No manual setup required.
 
 ### Knowledge Management
 - `store_knowledge` - Capture insights, decisions, findings
-- `find_knowledge` - Search and discover information
+- `find_knowledge` - **Enhanced temporal search** with intelligent ranking, advanced filtering, and temporal scoring
 - `search_across_projects` - Cross-project knowledge search
 - `discover_projects` - Find available projects with knowledge
 
@@ -123,11 +126,40 @@ The MCP server auto-configures with Claude Code. No manual setup required.
 - **Scoped Services**: Proper dependency injection lifetimes
 
 ### Technology Stack
-- **.NET 9.0** with COA.Mcp.Framework 1.4.8
-- **SQLite** with full-text search (FTS5)
+- **.NET 9.0** with COA.Mcp.Framework 1.5.4
+- **SQLite** with full-text search (FTS5) and temporal scoring
 - **Entity Framework Core** for data access
 - **Serilog** for structured logging
 - **Cross-platform** user-level storage
+
+## 🔍 Enhanced Search Features
+
+### Temporal Knowledge Search
+The `find_knowledge` tool provides intelligent search with temporal scoring:
+
+**Temporal Scoring Modes:**
+- `None` - Pure relevance matching
+- `Default` - Moderate decay over 30 days *(recommended)*
+- `Aggressive` - Strong preference for recent knowledge (7-day half-life)  
+- `Gentle` - Slow decay over long periods (90-day half-life)
+
+**Advanced Filtering:**
+- Type, tag, status, priority filtering
+- Date range queries
+- Workspace-specific or cross-workspace search
+- Boost recent or frequently accessed knowledge
+
+**Usage Examples:**
+```bash
+# Find recent technical debt
+find_knowledge(query="refactoring", types=["TechnicalDebt"], temporal_scoring="Aggressive")
+
+# Search by tags and date range
+find_knowledge(query="auth", tags=["security"], from_date="2025-01-01")
+
+# Find frequently referenced knowledge
+find_knowledge(boost_frequent=true, order_by="accesscount")
+```
 
 ## 🤖 AI-Optimized Design
 

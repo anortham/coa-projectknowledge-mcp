@@ -16,9 +16,14 @@ namespace COA.ProjectKnowledge.McpServer.Tests.TestBase;
 
 public abstract class ProjectKnowledgeTestBase : McpTestBase
 {
-    protected KnowledgeDbContext DbContext { get; private set; } = null!;
     protected SqliteConnection Connection { get; private set; } = null!;
     protected IConfiguration Configuration { get; private set; } = null!;
+    
+    protected KnowledgeDbContext GetDbContext()
+    {
+        var scope = ServiceProvider.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
+    }
 
     protected override void ConfigureServices(IServiceCollection services)
     {
@@ -36,15 +41,11 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         Connection = new SqliteConnection("DataSource=:memory:");
         Connection.Open();
 
-        var options = new DbContextOptionsBuilder<KnowledgeDbContext>()
-            .UseSqlite(Connection)
-            .Options;
-
-        DbContext = new KnowledgeDbContext(options);
-        services.AddSingleton(DbContext);
-        
-        // Also add as scoped for services that expect it
-        services.AddScoped<KnowledgeDbContext>(_ => DbContext);
+        // Register DbContext as scoped with factory to ensure proper tracking
+        services.AddDbContext<KnowledgeDbContext>(options =>
+        {
+            options.UseSqlite(Connection);
+        }, ServiceLifetime.Scoped);
 
         // Add common mocked services that all tests need
         AddCommonTestServices(services);
@@ -73,13 +74,28 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         services.AddSingleton(executionContextLoggerMock.Object);
         services.AddSingleton<ExecutionContextService>();
 
+        // Add KnowledgeService with required dependencies
+        var knowledgeServiceLoggerMock = new Mock<ILogger<KnowledgeService>>();
+        services.AddSingleton(knowledgeServiceLoggerMock.Object);
+        services.AddScoped<KnowledgeService>();
+
+        // Add other core services that KnowledgeService might need
+        services.AddScoped<CheckpointService>();
+        services.AddScoped<ChecklistService>();
+        services.AddScoped<RelationshipService>();
+
+        // Add logger mocks for services
+        services.AddSingleton(new Mock<ILogger<CheckpointService>>().Object);
+        services.AddSingleton(new Mock<ILogger<ChecklistService>>().Object);
+        services.AddSingleton(new Mock<ILogger<RelationshipService>>().Object);
+
         // Add common tool logger mocks that most tests need
         services.AddSingleton(new Mock<ILogger<UpdateChecklistItemTool>>().Object);
         services.AddSingleton(new Mock<ILogger<CreateChecklistTool>>().Object);
         services.AddSingleton(new Mock<ILogger<CreateCheckpointTool>>().Object);
         services.AddSingleton(new Mock<ILogger<StoreKnowledgeTool>>().Object);
-        services.AddSingleton(new Mock<ILogger<SearchKnowledgeTool>>().Object);
         services.AddSingleton(new Mock<ILogger<ExportKnowledgeTool>>().Object);
+        services.AddSingleton(new Mock<ILogger<FindKnowledgeTool>>().Object);
     }
 
     protected virtual void ConfigureTestServices(IServiceCollection services)
@@ -92,7 +108,11 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         base.OnSetUp();
 
         // Ensure database is created with schema
-        DbContext.Database.EnsureCreated();
+        using (var scope = ServiceProvider.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
+            context.Database.EnsureCreated();
+        }
 
         // Allow derived classes to seed data
         SeedTestData();
@@ -107,8 +127,7 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
     {
         base.OnTearDown();
 
-        // Clean up database
-        DbContext?.Dispose();
+        // Clean up database connection
         Connection?.Close();
         Connection?.Dispose();
     }
@@ -119,6 +138,9 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         string content = "Test content",
         string? id = null)
     {
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
+        
         var knowledge = new KnowledgeEntity
         {
             Id = id ?? Guid.NewGuid().ToString(),
@@ -130,20 +152,24 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
             AccessCount = 0
         };
 
-        DbContext.Knowledge.Add(knowledge);
-        await DbContext.SaveChangesAsync();
+        context.Knowledge.Add(knowledge);
+        await context.SaveChangesAsync();
         return knowledge;
     }
 
     protected void AssertKnowledgeExists(string id)
     {
-        var exists = DbContext.Knowledge.Any(k => k.Id == id);
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
+        var exists = context.Knowledge.Any(k => k.Id == id);
         Assert.That(exists, Is.True, $"Knowledge with ID {id} should exist");
     }
 
     protected void AssertKnowledgeNotExists(string id)
     {
-        var exists = DbContext.Knowledge.Any(k => k.Id == id);
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<KnowledgeDbContext>();
+        var exists = context.Knowledge.Any(k => k.Id == id);
         Assert.That(exists, Is.False, $"Knowledge with ID {id} should not exist");
     }
 }

@@ -73,7 +73,7 @@ public class CreateChecklistToolTests : ProjectKnowledgeTestBase
         result.CompletionPercentage.Should().Be(0); // New items should be incomplete
 
         // Verify in database
-        var checklist = await DbContext.Knowledge.FindAsync(result.ChecklistId);
+        var checklist = await GetDbContext().Knowledge.FindAsync(result.ChecklistId);
         checklist.Should().NotBeNull();
         checklist!.Type.Should().Be(KnowledgeTypes.Checklist);
         checklist.Content.Should().Be("User Authentication Feature Implementation");
@@ -99,7 +99,7 @@ public class CreateChecklistToolTests : ProjectKnowledgeTestBase
         FluentAssertions.AssertionExtensions.Should(result.ItemCount).Be(0);
 
         // Verify in database
-        var checklist = await DbContext.Knowledge.FindAsync(result.ChecklistId);
+        var checklist = await GetDbContext().Knowledge.FindAsync(result.ChecklistId);
         checklist.Should().NotBeNull();
         checklist!.Type.Should().Be(KnowledgeTypes.Checklist);
     }
@@ -131,7 +131,7 @@ public class CreateChecklistToolTests : ProjectKnowledgeTestBase
         result.ChecklistId.Should().NotBeNullOrEmpty();
 
         // Verify parent relationship is established
-        var nestedChecklist = await DbContext.Knowledge.FindAsync(result.ChecklistId);
+        var nestedChecklist = await GetDbContext().Knowledge.FindAsync(result.ChecklistId);
         nestedChecklist.Should().NotBeNull();
         nestedChecklist!.Metadata.Should().Contain("parentChecklistId");
     }
@@ -227,7 +227,7 @@ public class CreateChecklistToolTests : ProjectKnowledgeTestBase
         result.CompletionPercentage.Should().Be(0);
 
         // Verify checklist created successfully with special characters in content
-        var checklist = await DbContext.Knowledge.FindAsync(result.ChecklistId);
+        var checklist = await GetDbContext().Knowledge.FindAsync(result.ChecklistId);
         checklist.Should().NotBeNull();
     }
 }
