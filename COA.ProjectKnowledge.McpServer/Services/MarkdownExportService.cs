@@ -115,6 +115,9 @@ public class MarkdownExportService
                 await CreateGraphFileAsync(outputPath, items);
             }
             
+            // Create viewing guide
+            await CreateViewingGuideAsync(outputPath, options.Format);
+            
             result.Success = true;
             result.OutputPath = outputPath;
             result.CompletedAt = DateTime.UtcNow;
@@ -176,8 +179,8 @@ public class MarkdownExportService
             content.AppendLine($"# {GetItemTitle(item)}");
             content.AppendLine();
             
-            // Main content with wiki links
-            var linkedContent = await AddWikiLinksAsync(item.Content, allItems);
+            // Main content with links based on format
+            var linkedContent = await AddLinksAsync(item.Content, allItems, options.Format);
             content.AppendLine(linkedContent);
             content.AppendLine();
             
@@ -248,8 +251,8 @@ public class MarkdownExportService
                             var target = allItems.FirstOrDefault(i => i.Id == rel.ToId);
                             if (target != null)
                             {
-                                var targetTitle = GetItemTitle(target);
-                                content.AppendLine($"- [[{targetTitle}]] ({rel.RelationshipType})");
+                                var link = GenerateLink(target, options.Format);
+                                content.AppendLine($"- {link} ({rel.RelationshipType})");
                             }
                         }
                     }
@@ -263,8 +266,8 @@ public class MarkdownExportService
                             var source = allItems.FirstOrDefault(i => i.Id == rel.FromId);
                             if (source != null)
                             {
-                                var sourceTitle = GetItemTitle(source);
-                                content.AppendLine($"- [[{sourceTitle}]] ({rel.RelationshipType})");
+                                var link = GenerateLink(source, options.Format);
+                                content.AppendLine($"- {link} ({rel.RelationshipType})");
                             }
                         }
                     }
@@ -292,17 +295,31 @@ public class MarkdownExportService
         }
     }
     
-    private Task<string> AddWikiLinksAsync(string content, List<Knowledge> allItems)
+    private Task<string> AddLinksAsync(string content, List<Knowledge> allItems, ExportFormat format)
     {
-        // Auto-link references to other knowledge items
+        // Auto-link references to other knowledge items based on format
         foreach (var item in allItems)
         {
-            var title = GetItemTitle(item);
             var pattern = $@"\b{Regex.Escape(item.Id)}\b";
-            content = Regex.Replace(content, pattern, $"[[{title}]]");
+            var link = GenerateLink(item, format);
+            content = Regex.Replace(content, pattern, link);
         }
         
         return Task.FromResult(content);
+    }
+    
+    private string GenerateLink(Knowledge item, ExportFormat format)
+    {
+        var title = GetItemTitle(item);
+        var fileName = GenerateFileName(item);
+        var typePath = SanitizeFolderName(item.Type).ToLower();
+        
+        return format switch
+        {
+            ExportFormat.Obsidian => $"[[{title}]]",
+            ExportFormat.Universal or ExportFormat.Joplin => $"[{title}](./{typePath}/{fileName})",
+            _ => $"[{title}](./{typePath}/{fileName})"
+        };
     }
     
     private async Task CreateIndexFileAsync(string outputPath, List<Knowledge> items)
@@ -427,10 +444,82 @@ public class MarkdownExportService
         return SanitizeFileName(title);
     }
     
+    private async Task CreateViewingGuideAsync(string outputPath, ExportFormat format)
+    {
+        var guidePath = Path.Combine(outputPath, "VIEWING_GUIDE.md");
+        var content = new StringBuilder();
+        
+        content.AppendLine("# Viewing This Documentation");
+        content.AppendLine();
+        content.AppendLine($"This export was created in **{format}** format on {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC.");
+        content.AppendLine();
+        
+        content.AppendLine("## Option 1: Joplin (Recommended - Free & Open Source)");
+        content.AppendLine("1. Download Joplin from https://joplinapp.org");
+        content.AppendLine("2. Go to File → Import → MD - Markdown (Directory)");
+        content.AppendLine("3. Select this folder");
+        content.AppendLine("4. All notes will be imported with structure preserved");
+        content.AppendLine();
+        
+        content.AppendLine("## Option 2: Obsidian (Power Users)");
+        content.AppendLine("1. Download Obsidian from https://obsidian.md");
+        content.AppendLine("2. Create new vault or open existing");
+        if (format == ExportFormat.Obsidian)
+        {
+            content.AppendLine("3. Copy this folder into your vault");
+            content.AppendLine("4. WikiLinks will work automatically");
+        }
+        else
+        {
+            content.AppendLine("3. Copy this folder into your vault");
+            content.AppendLine("4. Standard markdown links will work");
+        }
+        content.AppendLine();
+        
+        content.AppendLine("## Option 3: VS Code");
+        content.AppendLine("1. Open this folder in VS Code");
+        content.AppendLine("2. Install 'Markdown Preview Enhanced' extension");
+        content.AppendLine("3. Use Ctrl+K V (Cmd+K V on Mac) to preview any file");
+        content.AppendLine("4. Mermaid diagrams will render in preview");
+        content.AppendLine();
+        
+        content.AppendLine("## Option 4: GitHub/Azure DevOps");
+        content.AppendLine("1. Upload folder to repository");
+        content.AppendLine("2. Markdown files will render automatically");
+        content.AppendLine("3. Navigate using file browser");
+        content.AppendLine("4. Mermaid diagrams are supported");
+        content.AppendLine();
+        
+        content.AppendLine("## Option 5: Web Browser");
+        content.AppendLine("1. Use a markdown viewer browser extension");
+        content.AppendLine("2. Or use online viewers like dillinger.io or stackedit.io");
+        content.AppendLine("3. Open individual .md files");
+        content.AppendLine();
+        
+        content.AppendLine("## File Structure");
+        content.AppendLine("- `README.md` - Main index with statistics");
+        content.AppendLine("- `GRAPH.md` - Relationship visualization (Mermaid)");
+        content.AppendLine("- `VIEWING_GUIDE.md` - This file");
+        content.AppendLine("- Folders by knowledge type containing individual items");
+        content.AppendLine();
+        
+        content.AppendLine("## Features");
+        content.AppendLine("- ✅ Cross-references between documents");
+        content.AppendLine("- ✅ Mermaid diagrams for relationships");
+        content.AppendLine("- ✅ YAML front matter with metadata");
+        content.AppendLine("- ✅ Organized by knowledge type");
+        content.AppendLine("- ✅ Compatible with major markdown tools");
+        
+        await File.WriteAllTextAsync(guidePath, content.ToString());
+    }
+    
     private string GenerateFileName(Knowledge item)
     {
         var title = GetItemTitle(item);
-        return $"{title}.md";
+        var sanitized = SanitizeFileName(title);
+        // Convert spaces to hyphens for better cross-platform compatibility
+        sanitized = sanitized.Replace(" ", "-").ToLower();
+        return $"{sanitized}.md";
     }
     
     private string SanitizeFileName(string name)
@@ -449,12 +538,20 @@ public class MarkdownExportService
 }
 
 // Export models
+public enum ExportFormat
+{
+    Universal,   // Default - works with Joplin, Obsidian, VS Code, GitHub, etc.
+    Obsidian,    // WikiLinks and Obsidian-specific features
+    Joplin       // Joplin-compatible format (currently same as Universal)
+}
+
 public class ExportOptions
 {
     public bool IncludeRelationships { get; set; } = true;
     public bool CreateIndex { get; set; } = true;
     public string? FilterByType { get; set; }
     public bool IncludeArchived { get; set; } = false;
+    public ExportFormat Format { get; set; } = ExportFormat.Universal;
 }
 
 public class ExportResult

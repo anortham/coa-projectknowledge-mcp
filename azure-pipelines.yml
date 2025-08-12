@@ -1,34 +1,39 @@
-# Azure Pipelines CI/CD for COA ProjectKnowledge MCP Server
-# Builds, tests, and publishes dotnet tool to Azure Artifacts
-#
-# Service Connection Requirements:
-# - "COA NuGet Feed" for publishing to Azure Artifacts (required)
-# - "NuGet.org - COA" for publishing to NuGet.org (optional)
-#   To create: Azure DevOps > Project Settings > Service connections > New > NuGet
-#   Set SKIP_NUGET_PUBLISH=true to skip NuGet.org publishing if connection unavailable
+# Azure Pipelines for COA ProjectKnowledge MCP
+# Supports both CI builds (automatic) and Release builds (manual)
+# CI: Builds and publishes to Azure DevOps feed only
+# Release: Manual trigger with option to publish to NuGet.org
 
-name: 'COA ProjectKnowledge MCP Server - $(Build.SourceBranchName) - $(Date:yyyyMMdd)$(Rev:.r)'
+name: 'COA ProjectKnowledge MCP - v$(majorVersion).$(minorVersion).$(patchVersion)'
 
+# Automatic triggers for CI builds
 trigger:
   branches:
     include:
       - main
       - develop
       - release/*
-  tags:
-    include:
-      - v*
   paths:
     exclude:
-      - "**/*.md"
-      - ".gitignore"
-      - "docs/**"
+      - '*.md'
+      - 'docs/*'
 
+# Run on pull requests for validation
 pr:
   branches:
     include:
       - main
       - develop
+
+# Parameters for manual runs
+parameters:
+  - name: publishToNuGet
+    displayName: 'Publish to NuGet.org?'
+    type: boolean
+    default: false
+  - name: createGitTag
+    displayName: 'Create Git tag for release?'
+    type: boolean
+    default: true
 
 pool:
   name: "Default" # Using local Windows agent pool
@@ -36,9 +41,9 @@ pool:
 variables:
   buildConfiguration: "Release"
   dotnetSdkVersion: "9.x"
-  # Base version
+  # Base version for ProjectKnowledge - v1.1.0
   majorVersion: 1
-  minorVersion: 0
+  minorVersion: 1
   # Auto-incrementing patch version - increments on every build
   # The counter is keyed by major.minor version, so it resets when those change
   patchVersion: $[counter(format('{0}.{1}', variables['majorVersion'], variables['minorVersion']), 0)]
@@ -48,11 +53,11 @@ variables:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   NUGET_PACKAGES: $(Pipeline.Workspace)\.nuget\packages
-  # Release flag based on tags
-  ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
-    isRelease: true
-  ${{ else }}:
-    isRelease: false
+  # Manual run parameters (only available for manual runs)
+  shouldPublishToNuGet: ${{ parameters.publishToNuGet }}
+  shouldCreateTag: ${{ parameters.createGitTag }}
+  # Determine if this is a release build
+  isRelease: ${{ eq(variables['Build.Reason'], 'Manual') }}
 
 stages:
   - stage: Build
@@ -154,18 +159,19 @@ stages:
               Write-Host "========================================="
               Write-Host "Package Version Information:"
               Write-Host "========================================="
-              Write-Host "Major Version: $(majorVersion)"
-              Write-Host "Minor Version: $(minorVersion)"
-              Write-Host "Patch Version: $(patchVersion)"
-              Write-Host "Version Prefix: $(versionPrefix)"
-              Write-Host "Version Suffix: $(versionSuffix)"
+              Write-Host "COA.ProjectKnowledge.MCP:"
+              Write-Host "  Major Version: $(majorVersion)"
+              Write-Host "  Minor Version: $(minorVersion)"
+              Write-Host "  Patch Version: $(patchVersion)"
+              Write-Host "  Version Prefix: $(versionPrefix)"
+              Write-Host "  Version Suffix: $(versionSuffix)"
               if ("$(versionSuffix)") {
-                  Write-Host "Full Version: $(versionPrefix)-$(versionSuffix)"
+                  Write-Host "  Full Version: $(versionPrefix)-$(versionSuffix)"
               }
               else {
-                  Write-Host "Full Version: $(versionPrefix)"
+                  Write-Host "  Full Version: $(versionPrefix)"
               }
-              Write-Host "Counter Key: $(majorVersion).$(minorVersion)"
+              Write-Host "  Counter Key: $(majorVersion).$(minorVersion)"
               Write-Host "========================================="
             displayName: "Display version information"
 
@@ -174,14 +180,6 @@ stages:
             inputs:
               version: $(dotnetSdkVersion)
               includePreviewVersions: false
-
-          - task: NodeTool@0
-            displayName: "Install Node.js"
-            inputs:
-              versionSpec: '18.x'
-
-          - task: NuGetAuthenticate@1
-            displayName: 'Authenticate to NuGet feeds'
 
           - task: DotNetCoreCLI@2
             displayName: "Restore packages"
@@ -222,84 +220,69 @@ stages:
             inputs:
               summaryFileLocation: '$(Agent.TempDirectory)\**\coverage.cobertura.xml'
 
-          - powershell: |
-              Write-Host "Build Artifact Staging Directory: $(Build.ArtifactStagingDirectory)"
-              Write-Host "Creating packages directory..."
-              New-Item -ItemType Directory -Force -Path "$(Build.ArtifactStagingDirectory)\packages"
-            displayName: "Prepare package directory"
-
+          # Pack the dotnet tool
           - task: DotNetCoreCLI@2
-            displayName: "Pack COA.ProjectKnowledge.McpServer"
+            displayName: "Pack COA.ProjectKnowledge.MCP"
             inputs:
               command: "pack"
               packagesToPack: "COA.ProjectKnowledge.McpServer/COA.ProjectKnowledge.McpServer.csproj"
               configuration: $(buildConfiguration)
               packDirectory: "$(Build.ArtifactStagingDirectory)/packages"
-              nobuild: false  # Changed to false to ensure build happens
+              nobuild: true
               versioningScheme: "off"
               arguments: "$(versionArguments) --no-restore"
 
           - powershell: |
-              Write-Host "Checking generated packages..."
-              Write-Host "======================================="
-              Write-Host "Artifact staging directory contents:"
-              if (Test-Path "$(Build.ArtifactStagingDirectory)") {
-                  Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)" -Recurse | ForEach-Object {
-                      Write-Host "  $($_.FullName)"
-                  }
-              } else {
-                  Write-Host "  Staging directory does not exist!"
+              Write-Host "Generated NuGet packages:"
+              Write-Host "========================="
+              Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)\packages" -Filter "*.nupkg" | ForEach-Object {
+                  Write-Host "$($_.Name) - Size: $([math]::Round($_.Length / 1MB, 2)) MB"
               }
-              
-              Write-Host ""
-              Write-Host "Packages directory contents:"
-              if (Test-Path "$(Build.ArtifactStagingDirectory)\packages") {
-                  $packages = Get-ChildItem -Path "$(Build.ArtifactStagingDirectory)\packages" -Filter "*.nupkg"
-                  if ($packages.Count -gt 0) {
-                      $packages | ForEach-Object {
-                          Write-Host "  $($_.Name) - Size: $([math]::Round($_.Length / 1MB, 2)) MB"
-                      }
-                  } else {
-                      Write-Host "  No .nupkg files found!"
-                  }
-              } else {
-                  Write-Host "  Packages directory does not exist!"
-              }
-              Write-Host "======================================="
-            displayName: "Debug: List generated packages"
-
-          - powershell: |
-              $packagesPath = "$(Build.ArtifactStagingDirectory)\packages"
-              $hasPackages = (Test-Path $packagesPath) -and ((Get-ChildItem -Path $packagesPath -Filter "*.nupkg").Count -gt 0)
-              Write-Host "##vso[task.setvariable variable=hasPackages]$hasPackages"
-              Write-Host "Has packages to publish: $hasPackages"
-            displayName: "Check if packages exist"
+              Write-Host "========================="
+            displayName: "List generated packages"
 
           - task: PublishBuildArtifacts@1
             displayName: "Publish artifacts"
-            condition: eq(variables['hasPackages'], 'True')
             inputs:
               PathtoPublish: '$(Build.ArtifactStagingDirectory)\packages'
               ArtifactName: "packages"
               publishLocation: "Container"
 
-          - script: |
-              echo "##[warning]No packages were generated. Skipping artifact publishing."
-              echo "##[section]Check the pack step logs above for issues."
-            displayName: "Package Generation Warning"
-            condition: eq(variables['hasPackages'], 'False')
-
-  - stage: Publish
+  - stage: PublishInternal
     displayName: "Publish to Azure DevOps"
     dependsOn: Build
     condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
-      - job: PublishPackages
+      - job: PublishToAzureDevOps
         displayName: "Publish to COA Feed"
         steps:
           - task: DownloadBuildArtifacts@1
             displayName: "Download artifacts"
-            continueOnError: true
+            inputs:
+              buildType: "current"
+              downloadType: "single"
+              artifactName: "packages"
+              downloadPath: "$(System.ArtifactsDirectory)"
+
+          - task: NuGetCommand@2
+            displayName: "Push packages to COA Azure DevOps feed"
+            inputs:
+              command: 'push'
+              packagesToPush: '$(System.ArtifactsDirectory)/packages/*.nupkg'
+              nuGetFeedType: 'internal'
+              publishVstsFeed: 'COA'
+              allowPackageConflicts: true
+
+  - stage: PublishNuGetOrg
+    displayName: "Publish to NuGet.org"
+    dependsOn: PublishInternal
+    condition: and(succeeded(), eq(variables['shouldPublishToNuGet'], 'true'), eq(variables['isRelease'], 'true'))
+    jobs:
+      - job: PublishToNuGetOrg
+        displayName: "Publish to NuGet.org"
+        steps:
+          - task: DownloadBuildArtifacts@1
+            displayName: "Download artifacts"
             inputs:
               buildType: "current"
               downloadType: "single"
@@ -307,69 +290,24 @@ stages:
               downloadPath: "$(System.ArtifactsDirectory)"
 
           - powershell: |
-              $artifactsPath = "$(System.ArtifactsDirectory)\packages"
-              $hasPackages = (Test-Path $artifactsPath) -and ((Get-ChildItem -Path $artifactsPath -Filter "*.nupkg" -ErrorAction SilentlyContinue).Count -gt 0)
-              Write-Host "##vso[task.setvariable variable=hasPackagesToPublish]$hasPackages"
-              Write-Host "Has packages to publish: $hasPackages"
-              if ($hasPackages) {
-                  Write-Host "Packages found:"
-                  Get-ChildItem -Path $artifactsPath -Filter "*.nupkg" | ForEach-Object {
-                      Write-Host "  $($_.Name)"
-                  }
-              } else {
-                  Write-Host "No packages found in artifacts directory"
+              Write-Host "Packages to publish to NuGet.org:"
+              Write-Host "================================="
+              Get-ChildItem -Path "$(System.ArtifactsDirectory)\packages" -Filter "*.nupkg" | ForEach-Object {
+                  Write-Host $_.Name
               }
-            displayName: "Check downloaded packages"
+              Write-Host "================================="
+            displayName: "List packages to publish"
 
-          - task: NuGetAuthenticate@1
-            displayName: 'Authenticate to NuGet feed'
-            condition: eq(variables['hasPackagesToPublish'], 'True')
-            
-          - task: DotNetCoreCLI@2
-            displayName: "Push to COA Azure DevOps feed"
-            condition: eq(variables['hasPackagesToPublish'], 'True')
+          - task: NuGetCommand@2
+            displayName: "Push COA.ProjectKnowledge.MCP to NuGet.org"
             inputs:
-              command: "push"
-              packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
-              nuGetFeedType: "internal"
-              publishVstsFeed: "COA"
-              allowPackageConflicts: true
-              arguments: "--skip-duplicate"
-            env:
-              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              command: 'push'
+              packagesToPush: '$(System.ArtifactsDirectory)/packages/COA.ProjectKnowledge.MCP.*.nupkg'
+              nuGetFeedType: 'external'
+              publishFeedCredentials: 'NuGetOrg-ServiceConnection'
+              verbosityPush: 'Detailed'
 
-          - script: |
-              echo "##[warning]No packages were available to publish to the COA feed."
-              echo "##[section]This usually means the pack step in the Build stage failed to generate .nupkg files."
-              echo "##[section]Check the Build stage logs for pack step errors."
-            displayName: "No Packages Warning"
-            condition: eq(variables['hasPackagesToPublish'], 'False')
-
-  # NuGet.org publishing stage (disabled until service connection is configured)
-  # To enable: Create "NuGet.org - COA" service connection in Azure DevOps Project Settings
-  # Then uncomment the stage below and remove this comment block
-  #
-  # - stage: PublishNuGet
-  #   displayName: "Publish to NuGet.org"
-  #   dependsOn: Build
-  #   condition: and(succeeded(), eq(variables['isRelease'], true))
-  #   jobs:
-  #     - job: PublishToNuGet
-  #       displayName: "Publish to NuGet.org (Release only)"
-  #       steps:
-  #         - task: DownloadBuildArtifacts@1
-  #           displayName: "Download artifacts"
-  #           inputs:
-  #             buildType: "current"
-  #             downloadType: "single"
-  #             artifactName: "packages"
-  #             downloadPath: "$(System.ArtifactsDirectory)"
-  #
-  #         - task: NuGetCommand@2
-  #           displayName: "Push to NuGet.org"
-  #           inputs:
-  #             command: "push"
-  #             packagesToPush: '$(System.ArtifactsDirectory)\packages\*.nupkg'
-  #             nuGetFeedType: "external"
-  #             publishFeedCredentials: "NuGet.org - COA"
-  #             allowPackageConflicts: false
+          - powershell: |
+              Write-Host "Successfully published packages to NuGet.org!"
+              Write-Host "Package should appear at https://www.nuget.org/packages/COA.ProjectKnowledge.MCP shortly"
+            displayName: "Publish success message"

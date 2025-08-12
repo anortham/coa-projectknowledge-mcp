@@ -89,13 +89,25 @@ public class ExportKnowledgeTool : McpToolBase<ExportKnowledgeParams, ExportKnow
                 };
             }
             
+            // Parse format parameter
+            var format = ExportFormat.Universal; // Default
+            if (!string.IsNullOrEmpty(parameters.Format))
+            {
+                if (!Enum.TryParse<ExportFormat>(parameters.Format, true, out format))
+                {
+                    _logger.LogWarning("Invalid export format '{Format}', using Universal", parameters.Format);
+                    format = ExportFormat.Universal;
+                }
+            }
+            
             // Regular export for smaller datasets or when output path is specified
             var options = new ExportOptions
             {
                 IncludeRelationships = parameters.IncludeRelationships ?? true,
                 CreateIndex = parameters.CreateIndex ?? true,
                 FilterByType = parameters.FilterByType,
-                IncludeArchived = parameters.IncludeArchived ?? false
+                IncludeArchived = parameters.IncludeArchived ?? false,
+                Format = format
             };
             
             var result = await _exportService.ExportToMarkdownAsync(
@@ -146,6 +158,9 @@ public class ExportKnowledgeParams
     
     [ComponentModel.Description("Maximum tokens for response when using resource storage (default: 10000)")]
     public int? MaxTokens { get; set; }
+    
+    [ComponentModel.Description("Export format: Universal (default - works everywhere), Obsidian (WikiLinks), or Joplin")]
+    public string? Format { get; set; }
 }
 
 public class ExportKnowledgeResult : ToolResultBase

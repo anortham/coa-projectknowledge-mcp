@@ -20,9 +20,9 @@
     <Copyright>Copyright © COA Development 2024</Copyright>
     
     <!-- Use pipeline versioning - these will be overridden by build -->
-    <VersionPrefix>1.0.0</VersionPrefix>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

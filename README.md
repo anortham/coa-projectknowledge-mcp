@@ -115,7 +115,7 @@ The MCP server auto-configures with Claude Code. No manual setup required.
 - `find_connections` - Discover related information
 
 ### Export & Sharing
-- `export_knowledge` - Export to Obsidian markdown
+- `export_knowledge` - Export to universal markdown (Joplin, Obsidian, VS Code, GitHub compatible)
 
 ## 📊 Knowledge Types
 
@@ -198,6 +198,27 @@ find_knowledge(boost_frequent=true, order_by="accesscount")
 
 - `/checkpoint` - Create structured work checkpoint
 - `/resume` - Load and restore latest checkpoint
+
+## 📤 Export Formats
+
+Knowledge can be exported in multiple formats for maximum compatibility:
+
+### Universal Format (Default)
+- Standard markdown links that work everywhere
+- Compatible with Joplin, Obsidian, VS Code, GitHub, Azure DevOps
+- Includes `VIEWING_GUIDE.md` with instructions for each tool
+
+### Format Options
+- `Universal` - Works with all markdown viewers (default)
+- `Obsidian` - Uses WikiLinks for Obsidian vaults
+- `Joplin` - Optimized for Joplin import
+
+### Export Features
+- Cross-references between documents
+- Mermaid diagrams for relationships
+- YAML front matter with metadata
+- Organized folder structure by type
+- Viewing guide with tool-specific instructions
 
 ## 🔄 Migration
 
