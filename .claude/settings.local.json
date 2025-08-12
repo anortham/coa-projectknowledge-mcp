@@ -46,7 +46,9 @@
       "mcp__projectknowledge__find_connections",
       "mcp__projectknowledge__export_knowledge",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(dotnet nuget locals:*)",
+      "Bash(dir:*)"
     ],
     "deny": []
   }

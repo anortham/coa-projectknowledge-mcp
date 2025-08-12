@@ -117,10 +117,8 @@ public class Program
         services.AddScoped<KnowledgeResourceProvider>();
         services.AddScoped<IResourceProvider>(provider => provider.GetRequiredService<KnowledgeResourceProvider>());
         
-        // Register Token Optimization services
+        // Register Token Optimization services (minimal set)
         services.AddSingleton<ITokenEstimator, DefaultTokenEstimator>();
-        services.AddSingleton<IInsightGenerator, InsightGenerator>();
-        services.AddSingleton<IActionGenerator, ActionGenerator>();
         services.AddSingleton<IResponseCacheService, ResponseCacheService>();
         services.AddSingleton<IResourceStorageService, ResourceStorageService>();
         services.AddSingleton<ICacheKeyGenerator, CacheKeyGenerator>();
@@ -240,8 +238,10 @@ public class Program
                 builder.UseAutoService(config =>
                 {
                     config.ServiceId = "projectknowledge-http";
-                    config.ExecutablePath = Assembly.GetExecutingAssembly().Location;
-                    config.Arguments = new[] { "--mode", "http" };
+                    // Use dotnet to execute the DLL with quoted path for spaces
+                    config.ExecutablePath = "dotnet";
+                    var dllPath = Assembly.GetExecutingAssembly().Location;
+                    config.Arguments = new[] { $"\"{dllPath}\"", "--mode", "http" };
                     config.Port = port;
                     config.HealthEndpoint = $"http://localhost:{port}/api/knowledge/health";
                     config.AutoRestart = true;
@@ -318,6 +318,9 @@ public class Program
             });
         });
 
+        // Add Memory Caching for HTTP mode
+        builder.Services.AddMemoryCache();
+        
         // Configure shared services
         ConfigureSharedServices(builder.Services, configuration);
 
