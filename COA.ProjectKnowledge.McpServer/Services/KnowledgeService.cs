@@ -147,7 +147,9 @@ public class KnowledgeService
     {
         try
         {
-            var workspace = request.Workspace ?? _workspaceResolver.GetCurrentWorkspace();
+            var requestedWorkspace = request.Workspace ?? _workspaceResolver.GetCurrentWorkspace();
+            var resolvedWorkspace = await ResolveWorkspaceNameAsync(requestedWorkspace);
+            var workspace = resolvedWorkspace ?? requestedWorkspace;
             var query = _context.Knowledge.Where(k => k.Workspace == workspace);
             
             // Handle special query syntax
@@ -395,6 +397,40 @@ public class KnowledgeService
         }
     }
     
+    private async Task<string?> ResolveWorkspaceNameAsync(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName))
+            return null;
+            
+        // First try exact match
+        var exactMatch = await _context.Knowledge
+            .Where(k => k.Workspace == workspaceName)
+            .Select(k => k.Workspace)
+            .FirstOrDefaultAsync();
+            
+        if (exactMatch != null)
+            return exactMatch;
+        
+        // If no exact match, try normalized matching
+        var normalized = _workspaceResolver.NormalizeWorkspaceName(workspaceName);
+        var allWorkspaces = await _context.Knowledge
+            .Where(k => k.Workspace != null)
+            .Select(k => k.Workspace!)
+            .Distinct()
+            .ToListAsync();
+            
+        // Find a workspace that normalizes to the same value
+        foreach (var workspace in allWorkspaces)
+        {
+            if (_workspaceResolver.NormalizeWorkspaceName(workspace) == normalized)
+            {
+                return workspace;
+            }
+        }
+        
+        return null;
+    }
+    
     public async Task<GetKnowledgeResponse> GetKnowledgeAsync(string id)
     {
         try
@@ -565,7 +601,9 @@ public class KnowledgeService
     {
         try
         {
-            var workspace = request.Workspace ?? _workspaceResolver.GetCurrentWorkspace();
+            var requestedWorkspace = request.Workspace ?? _workspaceResolver.GetCurrentWorkspace();
+            var resolvedWorkspace = await ResolveWorkspaceNameAsync(requestedWorkspace);
+            var workspace = resolvedWorkspace ?? requestedWorkspace;
             var query = _context.Knowledge.Where(k => k.Workspace == workspace);
             
             // Apply time filter

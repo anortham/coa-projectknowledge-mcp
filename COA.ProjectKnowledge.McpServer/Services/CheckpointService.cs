@@ -97,7 +97,7 @@ public class CheckpointService
         }
         else if (!string.IsNullOrEmpty(sessionId))
         {
-            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"SessionId\":\"{sessionId}\""));
+            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"sessionId\":\"{sessionId}\""));
             query = query.OrderByDescending(k => k.Id); // Use chronological ID for natural sorting
         }
         else
@@ -127,7 +127,7 @@ public class CheckpointService
 
         if (!string.IsNullOrEmpty(sessionId))
         {
-            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"SessionId\":\"{sessionId}\""));
+            query = query.Where(k => k.Metadata != null && k.Metadata.Contains($"\"sessionId\":\"{sessionId}\""));
         }
 
         var entities = await query
@@ -147,11 +147,11 @@ public class CheckpointService
         return new Checkpoint
         {
             Id = entity.Id,
-            SessionId = metadata.TryGetValue("SessionId", out var sessionId) 
+            SessionId = metadata.TryGetValue("sessionId", out var sessionId) 
                 ? sessionId.GetString() ?? string.Empty 
                 : string.Empty,
             Content = entity.Content,
-            ActiveFiles = metadata.TryGetValue("ActiveFiles", out var activeFiles) 
+            ActiveFiles = metadata.TryGetValue("activeFiles", out var activeFiles) 
                 ? JsonSerializer.Deserialize<string[]>(activeFiles.GetRawText()) ?? Array.Empty<string>()
                 : Array.Empty<string>(),
             CreatedAt = entity.CreatedAt,

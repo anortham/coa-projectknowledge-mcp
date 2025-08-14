@@ -69,4 +69,25 @@ public class WorkspaceResolver : IWorkspaceResolver
     {
         _currentWorkspace = workspace;
     }
+    
+    public string NormalizeWorkspaceName(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName))
+            return workspaceName;
+            
+        // Convert to lowercase and replace spaces with hyphens
+        return workspaceName.ToLowerInvariant()
+            .Replace(" ", "-")
+            .Replace("_", "-");
+    }
+    
+    public string GetCanonicalWorkspaceName(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName))
+            return workspaceName;
+            
+        // Try to find the canonical form in the database
+        // This should be called from the service layer with database access
+        return workspaceName;
+    }
 }
