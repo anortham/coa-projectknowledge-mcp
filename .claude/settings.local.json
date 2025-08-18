@@ -48,8 +48,12 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(dotnet nuget locals:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(sqlite3:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "C:\\Users\\CHS300372\\.coa\\knowledge"
+    ]
   }
 }

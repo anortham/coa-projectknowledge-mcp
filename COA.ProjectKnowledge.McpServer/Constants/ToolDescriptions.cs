@@ -6,7 +6,7 @@ namespace COA.ProjectKnowledge.McpServer.Constants;
 public static class ToolDescriptions
 {
     // Knowledge Management - Core Actions
-    public const string StoreKnowledge = "Remember and preserve important information, insights, decisions, or findings for future reference. Perfect for architectural decisions, technical debt notes, lessons learned, bug analysis, or any valuable context that should be retained. Use proactively whenever you encounter something worth remembering - don't wait to be asked.";
+    public const string StoreKnowledge = "ALWAYS store git commits as knowledge IMMEDIATELY after creating them. Remember and preserve: 1) Git commits (MANDATORY - include message, files changed, and impact), 2) Architectural decisions, 3) Technical debt notes, 4) Bug discoveries and fixes, 5) Lessons learned. Use IMMEDIATELY when: creating ANY git commit, making design decisions, discovering issues, or learning something significant. For git commits use: Type=WorkNote, Tags=['git-commit', feature-area], include commit hash and branch name. Never wait to be asked - proactively capture ALL significant moments.";
     
     public const string FindKnowledge = "Search and discover relevant knowledge with intelligent ranking that prioritizes recent and frequently accessed information. Supports advanced filtering by type, tags, status, priority, and date ranges. Uses temporal scoring to ensure the most relevant knowledge surfaces first. Perfect for questions like 'what did we decide about...?' or 'show me recent technical debt items'.";
     
@@ -15,7 +15,7 @@ public static class ToolDescriptions
     public const string SearchAcrossProjects = "Search for information across multiple projects and workspaces simultaneously. Use when looking for insights that might exist in other projects, learning from similar work, or when a single project search isn't comprehensive enough.";
     
     // Session & State Management  
-    public const string SaveCheckpoint = "Save the current state of your work session for later resumption. Use when completing a major milestone, before switching contexts, or to create restoration points.";
+    public const string SaveCheckpoint = "Save the current state of your work session for later resumption. ALWAYS use after: 1) Completing a git commit for a major feature, 2) Fixing significant bugs, 3) Before switching contexts, 4) At major milestones. Include current branch, latest commit hash, files modified, and work context. Creates restoration points that link code changes to their broader context.";
     
     public const string LoadCheckpoint = "Retrieve and restore a previous work session state. Use when resuming work, recovering from interruptions, or accessing previous session context.";
     

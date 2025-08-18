@@ -33,6 +33,29 @@
 - Database queries use `ChronologicalId` for natural sorting performance
 - Workspace names: Use `WorkspaceResolver.ResolveWorkspaceNameAsync()` for fuzzy matching
 
+### Git Commit Knowledge Storage
+**MANDATORY**: After creating ANY git commit:
+1. **IMMEDIATELY** use `store_knowledge` tool with:
+   - Type: `WorkNote` 
+   - Content: Include commit message, list of changed files, and brief impact summary
+   - Tags: `["git-commit", "feature-area"]` (replace feature-area with actual feature)
+   - Priority: `normal` (or `high` for breaking changes)
+   - Include commit hash and branch name in content
+
+2. For major features or bug fixes, also use `save_checkpoint` to create a restoration point
+
+**Example**:
+```
+store_knowledge(
+  type: "WorkNote",
+  content: "Commit 7a5cda0: Fix workspace name resolution\n\nFiles changed:\n- WorkspaceResolver.cs\n- KnowledgeService.cs\n\nImpact: Resolves VS Code integration issues with workspace name mismatches",
+  tags: ["git-commit", "workspace-resolution", "bugfix"],
+  priority: "normal"
+)
+```
+
+This ensures all project evolution is searchable and traceable.
+
 ### Service Layer Guidelines
 - **KnowledgeService**: Core CRUD with workspace resolution
 - **CheckpointService**: Session-based state management  

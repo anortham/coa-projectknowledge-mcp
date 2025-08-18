@@ -194,6 +194,41 @@ find_knowledge(boost_frequent=true, order_by="accesscount")
 - `ToolDescriptions` constants for maintainable guidance
 - No magic strings - centralized renaming
 
+## 📚 Best Practices & CLAUDE.md Configuration
+
+### Recommended CLAUDE.md Instructions
+
+Add these instructions to your project's `CLAUDE.md` file to maximize the effectiveness of ProjectKnowledge:
+
+#### Automatic Git Commit Storage
+```markdown
+### Git Commit Knowledge Storage
+**MANDATORY**: After creating ANY git commit:
+1. IMMEDIATELY use `store_knowledge` with Type=WorkNote
+2. Include: commit message, changed files, impact summary
+3. Tags: ["git-commit", "feature-area"]
+4. For major commits, also create a checkpoint
+```
+
+#### Proactive Knowledge Capture
+```markdown
+### Knowledge Capture Rules
+- Store architectural decisions IMMEDIATELY when made
+- Document bugs/issues when discovered (not just when fixed)
+- Save technical debt observations as you encounter them
+- Create checklists for multi-step tasks BEFORE starting
+```
+
+#### Session Management
+```markdown
+### Work Session Management  
+- Save checkpoints at natural break points
+- Always save before context switches
+- Use descriptive session IDs (e.g., "auth-implementation-2025")
+```
+
+These instructions help AI agents use ProjectKnowledge tools more effectively and maintain better project documentation.
+
 ## 📝 Slash Commands (Claude Code)
 
 Special commands available in Claude Code for enhanced workflow:
