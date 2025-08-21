@@ -7,7 +7,5 @@ public interface IRealTimeNotificationService
     Task NotifyKnowledgeCreatedAsync(Knowledge knowledge);
     Task NotifyKnowledgeUpdatedAsync(Knowledge knowledge);
     Task NotifyKnowledgeDeletedAsync(string knowledgeId);
-    Task NotifyCheckpointCreatedAsync(string sessionId, int sequenceNumber);
-    Task NotifyChecklistItemCompletedAsync(string checklistId, string itemId);
     Task NotifyRelationshipCreatedAsync(string fromId, string toId, string relationshipType);
 }

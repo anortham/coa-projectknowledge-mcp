@@ -18,7 +18,7 @@ public static class ErrorHelpers
             {
                 Steps = new[]
                 {
-                    "Verify the knowledge type is valid (Checkpoint, Checklist, TechnicalDebt, ProjectInsight, WorkNote)",
+                    "Verify the knowledge type is valid (TechnicalDebt, ProjectInsight, WorkNote)",
                     "Ensure content is not empty",
                     "Check if database is accessible",
                     "Verify workspace permissions"
@@ -70,98 +70,7 @@ public static class ErrorHelpers
         };
     }
 
-    public static ErrorInfo CreateCheckpointError(string message, string operation)
-    {
-        return new ErrorInfo
-        {
-            Code = "CHECKPOINT_FAILED",
-            Message = message,
-            Recovery = new RecoveryInfo
-            {
-                Steps = operation switch
-                {
-                    "create" => new[]
-                    {
-                        "Ensure content is provided",
-                        "Verify session ID format if specified",
-                        "Check database connectivity",
-                        "Ensure sufficient disk space"
-                    },
-                    "get" => new[]
-                    {
-                        "Verify checkpoint ID exists",
-                        "Check if session ID is correct",
-                        "Use list_checkpoints to find valid IDs",
-                        "Ensure checkpoint hasn't been deleted"
-                    },
-                    _ => new[]
-                    {
-                        "Check checkpoint operation parameters",
-                        "Verify database connectivity",
-                        "Review checkpoint permissions"
-                    }
-                },
-                SuggestedActions = new List<SuggestedAction>
-                {
-                    new SuggestedAction
-                    {
-                        Tool = ToolNames.ListCheckpoints,
-                        Description = "List available checkpoints",
-                        Parameters = new { maxResults = 10 }
-                    }
-                }
-            }
-        };
-    }
 
-    public static ErrorInfo CreateChecklistError(string message, string operation)
-    {
-        return new ErrorInfo
-        {
-            Code = "CHECKLIST_FAILED",
-            Message = message,
-            Recovery = new RecoveryInfo
-            {
-                Steps = operation switch
-                {
-                    "create" => new[]
-                    {
-                        "Provide checklist content/description",
-                        "Include at least one checklist item",
-                        "Verify parent checklist ID if nesting",
-                        "Check database connectivity"
-                    },
-                    "update" => new[]
-                    {
-                        "Verify checklist ID exists",
-                        "Check item ID is valid",
-                        "Ensure checklist hasn't been deleted",
-                        "Verify update permissions"
-                    },
-                    "get" => new[]
-                    {
-                        "Verify checklist ID exists",
-                        "Use find_knowledge to search for checklists",
-                        "Check if checklist is in current workspace"
-                    },
-                    _ => new[]
-                    {
-                        "Check checklist parameters",
-                        "Verify database connectivity"
-                    }
-                },
-                SuggestedActions = new List<SuggestedAction>
-                {
-                    new SuggestedAction
-                    {
-                        Tool = ToolNames.FindKnowledge,
-                        Description = "Search for checklists",
-                        Parameters = new { query = "type:Checklist" }
-                    }
-                }
-            }
-        };
-    }
 
     public static ErrorInfo CreateRelationshipError(string message, string operation)
     {

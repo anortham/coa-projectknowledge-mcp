@@ -9,13 +9,12 @@ namespace COA.ProjectKnowledge.McpServer.Resources;
 
 /// <summary>
 /// Provides URI-addressable resources for large knowledge data sets.
-/// Handles exports, search results, and checkpoint data that exceed token limits.
+/// Handles exports and search results that exceed token limits.
 /// Uses the framework's IResourceCache for proper lifetime management.
 /// </summary>
 public class KnowledgeResourceProvider : IResourceProvider
 {
     private readonly KnowledgeService _knowledgeService;
-    private readonly CheckpointService _checkpointService;
     private readonly IResourceCache<ReadResourceResult> _resourceCache;
     private readonly ILogger<KnowledgeResourceProvider> _logger;
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(15);
@@ -26,12 +25,10 @@ public class KnowledgeResourceProvider : IResourceProvider
 
     public KnowledgeResourceProvider(
         KnowledgeService knowledgeService,
-        CheckpointService checkpointService,
         IResourceCache<ReadResourceResult> resourceCache,
         ILogger<KnowledgeResourceProvider> logger)
     {
         _knowledgeService = knowledgeService;
-        _checkpointService = checkpointService;
         _resourceCache = resourceCache;
         _logger = logger;
     }
@@ -93,8 +90,6 @@ public class KnowledgeResourceProvider : IResourceProvider
             var content = parsedUri.Type switch
             {
                 "export" when parsedUri.Parameters.Count > 0 => await GenerateExportResource(parsedUri.Id, parsedUri.Parameters, cancellationToken),
-                "checkpoint" => await GenerateCheckpointResource(parsedUri.Id, cancellationToken),
-                "session" => await GenerateSessionResource(parsedUri.Id, cancellationToken),
                 _ => null
             };
 
@@ -220,45 +215,6 @@ public class KnowledgeResourceProvider : IResourceProvider
         };
     }
 
-    private async Task<InternalResourceContent?> GenerateCheckpointResource(string id, CancellationToken cancellationToken)
-    {
-        var checkpoint = await _checkpointService.GetCheckpointAsync(id);
-        if (checkpoint == null)
-            return null;
-
-        var json = JsonSerializer.Serialize(checkpoint, new JsonSerializerOptions 
-        { 
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        return new InternalResourceContent
-        {
-            Name = $"Checkpoint - {checkpoint.SessionId}",
-            Description = checkpoint.Content?.Substring(0, Math.Min(100, checkpoint.Content.Length)) + "...",
-            MimeType = "application/json",
-            Text = json
-        };
-    }
-
-    private async Task<InternalResourceContent?> GenerateSessionResource(string sessionId, CancellationToken cancellationToken)
-    {
-        var checkpoints = await _checkpointService.ListCheckpointsAsync(sessionId, 50);
-
-        var json = JsonSerializer.Serialize(checkpoints, new JsonSerializerOptions 
-        { 
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        return new InternalResourceContent
-        {
-            Name = $"Session History - {sessionId}",
-            Description = $"Contains {checkpoints.Count} checkpoints",
-            MimeType = "application/json",
-            Text = json
-        };
-    }
 
     private ParsedResourceUri? ParseResourceUri(string uri)
     {

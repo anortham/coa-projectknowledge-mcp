@@ -56,7 +56,7 @@ public class KnowledgeSearchResponseBuilder : ProjectKnowledgeResponseBuilder<Li
         var result = new List<KnowledgeItem>();
         var currentTokens = 0;
         
-        // Prioritize by: Checkpoints > Checklists > ProjectInsights > TechnicalDebt > WorkNotes
+        // Prioritize by: ProjectInsights > TechnicalDebt > WorkNotes
         // Then by AccessCount and CreatedAt
         var prioritized = items
             .OrderBy(k => GetTypePriority(k.Type))

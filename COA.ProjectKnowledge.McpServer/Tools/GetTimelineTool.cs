@@ -259,17 +259,7 @@ public class GetTimelineTool : McpToolBase<GetTimelineParams, GetTimelineResult>
     
     private string GetSummary(Knowledge item)
     {
-        if (item is Checkpoint checkpoint)
-        {
-            return $"Checkpoint #{checkpoint.SequenceNumber} - Session: {checkpoint.SessionId}";
-        }
-        
-        if (item is Checklist checklist)
-        {
-            var completed = checklist.Items?.Count(i => i.IsCompleted) ?? 0;
-            var total = checklist.Items?.Count ?? 0;
-            return $"{item.Content.Split('\n').FirstOrDefault()?.Trim() ?? "Checklist"} ({completed}/{total})";
-        }
+        // Checkpoint and Checklist types moved to Goldfish
         
         // For other types, use first line of content
         var firstLine = item.Content.Split('\n').FirstOrDefault()?.Trim() ?? "";

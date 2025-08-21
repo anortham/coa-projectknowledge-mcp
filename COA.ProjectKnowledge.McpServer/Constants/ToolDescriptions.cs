@@ -14,22 +14,10 @@ public static class ToolDescriptions
     
     public const string SearchAcrossProjects = "Search for information across multiple projects and workspaces simultaneously. Use when looking for insights that might exist in other projects, learning from similar work, or when a single project search isn't comprehensive enough.";
     
-    // Session & State Management  
-    public const string SaveCheckpoint = "Save the current state of your work session for later resumption. ALWAYS use after: 1) Completing a git commit for a major feature, 2) Fixing significant bugs, 3) Before switching contexts, 4) At major milestones. Include current branch, latest commit hash, files modified, and work context. Creates restoration points that link code changes to their broader context.";
-    
-    public const string LoadCheckpoint = "Retrieve and restore a previous work session state. Use when resuming work, recovering from interruptions, or accessing previous session context.";
-    
-    public const string ListCheckpoints = "View all available checkpoints for a session to understand work history and choose restoration points. Use when you need to see session timeline or find specific checkpoints.";
-    
     // Activity & History
     public const string ShowActivity = "View chronological history and timeline of recent work activities. Use when you want to understand what's been happening recently, track progress over time, or get context about recent decisions and changes.";
     
-    // Task Management
-    public const string CreateChecklist = "Create a new task list with items to track and manage. Use when you need to organize work, create TODO lists, or track completion of multiple related tasks.";
-    
-    public const string ViewChecklist = "View an existing checklist with current completion status. Use when you want to check progress on tasks, see what's completed, or review outstanding work items.";
-    
-    public const string UpdateTask = "Mark checklist items as completed or update their status. Use when you finish tasks, want to track progress, or need to update task completion state.";
+    public const string GetTimelineAdvanced = "Generate detailed activity timeline with smart grouping and analysis. Perfect for standups ('What did I work on yesterday?'), progress reviews, and understanding work patterns. Groups activities by hour/day/week/type with statistics and summaries. Use when you need comprehensive activity analysis rather than just a simple list.";
     
     // Relationships
     public const string LinkKnowledge = "Connect related information, decisions, or concepts together. Use proactively when you notice relationships between different pieces of work, when decisions depend on each other, or when you want to build understanding of how things relate.";

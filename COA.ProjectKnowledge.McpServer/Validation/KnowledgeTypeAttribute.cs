@@ -10,8 +10,6 @@ public class KnowledgeTypeAttribute : ValidationAttribute
 {
     private static readonly HashSet<string> ValidTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        KnowledgeTypes.Checkpoint,
-        KnowledgeTypes.Checklist,
         KnowledgeTypes.TechnicalDebt,
         KnowledgeTypes.ProjectInsight,
         KnowledgeTypes.WorkNote

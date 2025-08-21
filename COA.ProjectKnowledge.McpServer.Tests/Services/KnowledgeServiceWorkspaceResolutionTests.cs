@@ -39,7 +39,7 @@ public class KnowledgeServiceWorkspaceResolutionTests : ProjectKnowledgeTestBase
     protected override void OnSetUp()
     {
         base.OnSetUp();
-        _knowledgeService = GetService<KnowledgeService>();
+        _knowledgeService = GetRequiredService<KnowledgeService>();
     }
 
     [Test]

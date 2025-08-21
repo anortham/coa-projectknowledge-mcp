@@ -57,16 +57,7 @@ public class RealTimeNotificationService : IRealTimeNotificationService
         await BroadcastKnowledgeDeletedAsync(knowledgeId, "default");
     }
 
-    public async Task NotifyCheckpointCreatedAsync(string sessionId, int sequenceNumber)
-    {
-        await BroadcastCheckpointCreatedAsync($"checkpoint-{sessionId}-{sequenceNumber}", sessionId, "default");
-    }
 
-    public async Task NotifyChecklistItemCompletedAsync(string checklistId, string itemId)
-    {
-        // Placeholder - implement if needed
-        await Task.CompletedTask;
-    }
 
     public async Task NotifyRelationshipCreatedAsync(string fromId, string toId, string relationshipType)
     {
@@ -134,25 +125,6 @@ public class RealTimeNotificationService : IRealTimeNotificationService
         await BroadcastNotificationAsync(notification);
     }
 
-    /// <summary>
-    /// Broadcasts checkpoint creation to all connected clients
-    /// </summary>
-    public async Task BroadcastCheckpointCreatedAsync(string checkpointId, string sessionId, string workspace)
-    {
-        if (!IsEnabled) return;
-
-        var notification = new KnowledgeNotification
-        {
-            Type = "checkpoint_created",
-            KnowledgeId = checkpointId,
-            KnowledgeType = "Checkpoint",
-            Workspace = workspace,
-            SessionId = sessionId,
-            Timestamp = DateTime.UtcNow
-        };
-
-        await BroadcastNotificationAsync(notification);
-    }
 
     /// <summary>
     /// Broadcasts workspace activity updates

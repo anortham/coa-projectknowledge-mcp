@@ -78,8 +78,6 @@ public class Program
 
         // EF Core services
         services.AddScoped<KnowledgeService>();
-        services.AddScoped<CheckpointService>();
-        services.AddScoped<ChecklistService>();
         services.AddSingleton<IWorkspaceResolver, WorkspaceResolver>();
         services.AddSingleton<WorkspaceResolver>();
 
@@ -130,12 +128,6 @@ public class Program
         // Register all MCP tools - required for DI to work with DiscoverTools
         services.AddScoped<Tools.StoreKnowledgeTool>();
         services.AddScoped<Tools.FindKnowledgeTool>(); // Enhanced search with temporal scoring
-        services.AddScoped<Tools.CreateCheckpointTool>();
-        services.AddScoped<Tools.GetCheckpointTool>();
-        services.AddScoped<Tools.ListCheckpointsTool>();
-        services.AddScoped<Tools.CreateChecklistTool>();
-        services.AddScoped<Tools.GetChecklistTool>();
-        services.AddScoped<Tools.UpdateChecklistItemTool>();
         services.AddScoped<Tools.GetTimelineTool>();
         services.AddScoped<Tools.GetWorkspacesTool>();
         services.AddScoped<Tools.SearchCrossProjectTool>();

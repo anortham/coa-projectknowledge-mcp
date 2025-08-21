@@ -61,10 +61,9 @@ public class ExportKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
         {
             // Create with minimal dependencies
             var knowledgeService = provider.GetRequiredService<KnowledgeService>();
-            var checkpointService = provider.GetRequiredService<CheckpointService>();
             var resourceCache = provider.GetRequiredService<IResourceCache<ReadResourceResult>>();
             var logger = provider.GetRequiredService<ILogger<KnowledgeResourceProvider>>();
-            return new KnowledgeResourceProvider(knowledgeService, checkpointService, resourceCache, logger);
+            return new KnowledgeResourceProvider(knowledgeService, resourceCache, logger);
         });
         
         var resourceCacheMock = new Mock<IResourceCache<ReadResourceResult>>();
@@ -76,17 +75,9 @@ public class ExportKnowledgeToolTestsSimple : ProjectKnowledgeTestBase
         var tokenEstimatorMock = new Mock<ITokenEstimator>();
         services.AddSingleton(tokenEstimatorMock.Object);
 
-        // Add notification service mock for CheckpointService
-        var notificationServiceMock = new Mock<IRealTimeNotificationService>();
-        services.AddSingleton(notificationServiceMock.Object);
-        
-        var checkpointLoggerMock = new Mock<ILogger<CheckpointService>>();
-        services.AddSingleton(checkpointLoggerMock.Object);
-
         // Add services
         services.AddScoped<KnowledgeService>();
         services.AddScoped<RelationshipService>();
-        services.AddScoped<CheckpointService>();
         services.AddScoped<MarkdownExportService>();
         services.AddScoped<ExportKnowledgeTool>();
     }

@@ -19,11 +19,9 @@ public abstract class ProjectKnowledgeResponseBuilder<TData, TResult> : BaseResp
     /// </summary>
     protected int GetTypePriority(string type) => type switch
     {
-        "Checkpoint" => 1,
-        "Checklist" => 2,
-        "TechnicalDebt" => 3,
-        "ProjectInsight" => 4,
-        "WorkNote" => 5,
+        "TechnicalDebt" => 1,
+        "ProjectInsight" => 2,
+        "WorkNote" => 3,
         _ => 99
     };
 

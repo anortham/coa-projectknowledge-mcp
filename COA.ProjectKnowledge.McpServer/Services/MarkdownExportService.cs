@@ -184,40 +184,7 @@ public class MarkdownExportService
             content.AppendLine(linkedContent);
             content.AppendLine();
             
-            // Type-specific content
-            if (item is Checkpoint checkpoint)
-            {
-                content.AppendLine("## Session Info");
-                content.AppendLine($"- **Session**: {checkpoint.SessionId}");
-                content.AppendLine($"- **Sequence**: #{checkpoint.SequenceNumber}");
-                
-                if (checkpoint.ActiveFiles?.Any() == true)
-                {
-                    content.AppendLine();
-                    content.AppendLine("## Active Files");
-                    foreach (var file in checkpoint.ActiveFiles)
-                    {
-                        content.AppendLine($"- `{file}`");
-                    }
-                }
-            }
-            else if (item is Checklist checklist && checklist.Items?.Any() == true)
-            {
-                content.AppendLine("## Checklist Items");
-                var completed = checklist.Items.Count(i => i.IsCompleted);
-                content.AppendLine($"Progress: {completed}/{checklist.Items.Count} ({completed * 100 / checklist.Items.Count}%)");
-                content.AppendLine();
-                
-                foreach (var checkItem in checklist.Items.OrderBy(i => i.Order))
-                {
-                    var checkbox = checkItem.IsCompleted ? "[x]" : "[ ]";
-                    content.AppendLine($"- {checkbox} {checkItem.Content}");
-                    if (checkItem.IsCompleted && checkItem.CompletedAt.HasValue)
-                    {
-                        content.AppendLine($"  - Completed: {checkItem.CompletedAt.Value:yyyy-MM-dd HH:mm}");
-                    }
-                }
-            }
+            // Type-specific content - checkpoints and checklists moved to Goldfish
             
             // Code snippets
             if (item.CodeSnippets?.Any() == true)
@@ -423,16 +390,7 @@ public class MarkdownExportService
     private string GetItemTitle(Knowledge item)
     {
         // Extract a meaningful title from the content
-        if (item is Checkpoint checkpoint)
-        {
-            return $"Checkpoint {checkpoint.SessionId} #{checkpoint.SequenceNumber}";
-        }
-        
-        if (item is Checklist checklist)
-        {
-            var firstLine = item.Content.Split('\n').FirstOrDefault()?.Trim() ?? item.Id;
-            return $"Checklist - {firstLine}";
-        }
+        // Checkpoint and Checklist types moved to Goldfish
         
         // For other types, use first line or ID
         var title = item.Content.Split('\n').FirstOrDefault()?.Trim();

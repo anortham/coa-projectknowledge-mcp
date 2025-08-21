@@ -156,7 +156,7 @@ public class StoreKnowledgeParams
     public string Content { get; set; } = string.Empty;
     
     [ValidationAttributes.KnowledgeType]
-    [ComponentModel.Description("Knowledge type (Checkpoint, Checklist, TechnicalDebt, ProjectInsight, WorkNote)")]
+    [ComponentModel.Description("Knowledge type (TechnicalDebt, ProjectInsight, WorkNote)")]
     public string? Type { get; set; }
     
     [ComponentModel.Description("Code snippets with syntax information")]

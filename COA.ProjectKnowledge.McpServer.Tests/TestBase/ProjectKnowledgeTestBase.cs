@@ -80,19 +80,10 @@ public abstract class ProjectKnowledgeTestBase : McpTestBase
         services.AddScoped<KnowledgeService>();
 
         // Add other core services that KnowledgeService might need
-        services.AddScoped<CheckpointService>();
-        services.AddScoped<ChecklistService>();
         services.AddScoped<RelationshipService>();
 
         // Add logger mocks for services
-        services.AddSingleton(new Mock<ILogger<CheckpointService>>().Object);
-        services.AddSingleton(new Mock<ILogger<ChecklistService>>().Object);
         services.AddSingleton(new Mock<ILogger<RelationshipService>>().Object);
-
-        // Add common tool logger mocks that most tests need
-        services.AddSingleton(new Mock<ILogger<UpdateChecklistItemTool>>().Object);
-        services.AddSingleton(new Mock<ILogger<CreateChecklistTool>>().Object);
-        services.AddSingleton(new Mock<ILogger<CreateCheckpointTool>>().Object);
         services.AddSingleton(new Mock<ILogger<StoreKnowledgeTool>>().Object);
         services.AddSingleton(new Mock<ILogger<ExportKnowledgeTool>>().Object);
         services.AddSingleton(new Mock<ILogger<FindKnowledgeTool>>().Object);

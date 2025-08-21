@@ -8,14 +8,7 @@
       "Bash(dotnet build)",
       "Bash(cat:*)",
       "Bash(dotnet clean:*)",
-      "mcp__projectknowledge__create_checkpoint",
       "mcp__projectknowledge__store_knowledge",
-      "mcp__projectknowledge__search_knowledge",
-      "mcp__projectknowledge__get_checkpoint",
-      "mcp__projectknowledge__create_checklist",
-      "mcp__projectknowledge__get_checklist",
-      "mcp__projectknowledge__list_checkpoints",
-      "mcp__projectknowledge__update_checklist_item",
       "Bash(dotnet build:*)",
       "mcp__projectknowledge__get_timeline",
       "Bash(dotnet test:*)",
@@ -34,12 +27,8 @@
       "mcp__projectknowledge__create_relationship",
       "mcp__projectknowledge__get_workspaces",
       "mcp__projectknowledge__search_cross_project",
-      "mcp__projectknowledge__save_checkpoint",
-      "mcp__projectknowledge__load_checkpoint",
       "mcp__projectknowledge__show_activity",
       "mcp__projectknowledge__find_knowledge",
-      "mcp__projectknowledge__view_checklist",
-      "mcp__projectknowledge__update_task",
       "mcp__projectknowledge__discover_projects",
       "mcp__projectknowledge__search_across_projects",
       "mcp__projectknowledge__link_knowledge",
@@ -49,11 +38,23 @@
       "Bash(find:*)",
       "Bash(dotnet nuget locals:*)",
       "Bash(dir:*)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "mcp__codesearch__text_search",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebSearch",
+      "mcp__goldfish__remember",
+      "mcp__goldfish__recall",
+      "Bash(npm run build:*)",
+      "mcp__goldfish__snapshot",
+      "mcp__goldfish__create_todo_list",
+      "mcp__goldfish__save_session",
+      "mcp__goldfish__restore_session",
+      "mcp__goldfish__view_todos"
     ],
     "deny": [],
     "additionalDirectories": [
-      "C:\\Users\\CHS300372\\.coa\\knowledge"
+      "C:\\Users\\CHS300372\\.coa\\knowledge",
+      "C:\\tmp"
     ]
   }
 }

@@ -1,12 +1,10 @@
 namespace COA.ProjectKnowledge.McpServer.Constants;
 
 /// <summary>
-/// Defines the 5 core knowledge types
+/// Defines the 3 core knowledge types
 /// </summary>
 public static class KnowledgeTypes
 {
-    public const string Checkpoint = "Checkpoint";
-    public const string Checklist = "Checklist";
     public const string TechnicalDebt = "TechnicalDebt";
     public const string ProjectInsight = "ProjectInsight";
     public const string WorkNote = "WorkNote";
@@ -16,8 +14,6 @@ public static class KnowledgeTypes
     /// </summary>
     public static readonly string[] All = new[]
     {
-        Checkpoint,
-        Checklist,
         TechnicalDebt,
         ProjectInsight,
         WorkNote

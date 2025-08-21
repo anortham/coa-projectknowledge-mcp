@@ -71,6 +71,52 @@ public class CrossWorkspaceSearchItem : KnowledgeSearchItem
     public string Workspace { get; set; } = string.Empty;
 }
 
+public class TimelineRequest
+{
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string? Workspace { get; set; }
+    public string[]? Types { get; set; }
+    public int MaxResults { get; set; } = 50;
+    
+    // Additional properties for GetTimelineTool compatibility
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int? DaysAgo { get; set; }
+    public double? HoursAgo { get; set; }
+    public string? Type { get; set; }
+}
+
+public class TimelineResponse
+{
+    public bool Success { get; set; }
+    public List<TimelineItem> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public string? Message { get; set; }
+    public string? Error { get; set; }
+    
+    // Additional properties for GetTimelineTool compatibility
+    public List<TimelineItem> Timeline { get; set; } = new();
+    public DateRange? DateRange { get; set; }
+}
+
+public class TimelineItem
+{
+    public string Id { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string[]? Tags { get; set; }
+    public string? Status { get; set; }
+    public string? Priority { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime ModifiedAt { get; set; }
+    public int AccessCount { get; set; }
+    public string? Workspace { get; set; }
+    
+    // Additional property for GetTimelineTool compatibility
+    public string Summary { get; set; } = string.Empty;
+}
+
 public class GetKnowledgeResponse
 {
     public bool Success { get; set; }
@@ -101,40 +147,6 @@ public class DeleteKnowledgeResponse
     public string? Error { get; set; }
 }
 
-// Timeline Models
-public class TimelineRequest
-{
-    public string? Workspace { get; set; }
-    public DateTime? StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
-    public int? DaysAgo { get; set; }
-    public double? HoursAgo { get; set; }
-    public string? Type { get; set; }
-    public int? MaxResults { get; set; }
-}
-
-public class TimelineResponse
-{
-    public bool Success { get; set; }
-    public List<TimelineItem> Timeline { get; set; } = new();
-    public int TotalCount { get; set; }
-    public DateRange? DateRange { get; set; }
-    public string? Error { get; set; }
-}
-
-public class TimelineItem
-{
-    public string Id { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public string Summary { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
-    public DateTime ModifiedAt { get; set; }
-    public string Workspace { get; set; } = string.Empty;
-    public string[]? Tags { get; set; }
-    public string? Status { get; set; }
-    public string? Priority { get; set; }
-    public int AccessCount { get; set; }
-}
 
 public class DateRange
 {
@@ -142,87 +154,6 @@ public class DateRange
     public DateTime To { get; set; }
 }
 
-// Checkpoint Service Models
-public class CreateCheckpointRequest
-{
-    public string Content { get; set; } = string.Empty;
-    public string? SessionId { get; set; }
-    public string[]? ActiveFiles { get; set; }
-}
-
-public class CreateCheckpointResponse
-{
-    public bool Success { get; set; }
-    public Checkpoint? Checkpoint { get; set; }
-    public string? Error { get; set; }
-}
-
-public class GetCheckpointRequest
-{
-    public string? CheckpointId { get; set; }
-    public string? SessionId { get; set; }
-}
-
-public class GetCheckpointResponse
-{
-    public bool Success { get; set; }
-    public Checkpoint? Checkpoint { get; set; }
-    public string? Error { get; set; }
-}
-
-public class ListCheckpointsRequest
-{
-    public string SessionId { get; set; } = string.Empty;
-    public int? MaxResults { get; set; }
-}
-
-public class ListCheckpointsResponse
-{
-    public bool Success { get; set; }
-    public List<Checkpoint> Checkpoints { get; set; } = new();
-    public string? Error { get; set; }
-}
-
-// Checklist Service Models
-public class CreateChecklistRequest
-{
-    public string Content { get; set; } = string.Empty;
-    public string[] Items { get; set; } = Array.Empty<string>();
-    public string? ParentChecklistId { get; set; }
-}
-
-public class CreateChecklistResponse
-{
-    public bool Success { get; set; }
-    public Checklist? Checklist { get; set; }
-    public string? Error { get; set; }
-}
-
-public class GetChecklistRequest
-{
-    public string ChecklistId { get; set; } = string.Empty;
-}
-
-public class GetChecklistResponse
-{
-    public bool Success { get; set; }
-    public Checklist? Checklist { get; set; }
-    public string? Error { get; set; }
-}
-
-public class UpdateChecklistItemRequest
-{
-    public string ChecklistId { get; set; } = string.Empty;
-    public string ItemId { get; set; } = string.Empty;
-    public bool IsCompleted { get; set; }
-}
-
-public class UpdateChecklistItemResponse
-{
-    public bool Success { get; set; }
-    public Checklist? Checklist { get; set; }
-    public string? Error { get; set; }
-}
 
 // Code snippet parameter model (for tools)
 public class CodeSnippetParameter

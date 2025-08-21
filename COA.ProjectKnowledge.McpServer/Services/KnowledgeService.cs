@@ -639,8 +639,9 @@ public class KnowledgeService
             query = query.OrderByDescending(k => k.CreatedAt);
             
             // Apply limit
+            var maxResults = request.MaxResults > 0 ? request.MaxResults : 100;
             var entities = await query
-                .Take(request.MaxResults ?? 100)
+                .Take(maxResults)
                 .ToListAsync();
             
             // Convert to timeline items

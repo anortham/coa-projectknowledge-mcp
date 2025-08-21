@@ -1,0 +1,12 @@
+{
+  "mcp": {
+    "servers": {
+      "projectknowledge": {
+        "command": "dotnet",
+        "args": ["run", "--project", "COA.ProjectKnowledge.McpServer", "--", "stdio"],
+        "cwd": "C:\\source\\COA ProjectKnowledge MCP",
+        "disabled": false
+      }
+    }
+  }
+}
